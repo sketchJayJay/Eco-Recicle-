@@ -2,52 +2,59 @@
 {% set page_title = 'Recibo de compra' %}
 {% block content %}
 <div class="receipt-actions no-print">
-  <button class="btn primary" onclick="window.print()">Imprimir recibo</button>
+  <button class="btn primary" onclick="window.print()">Imprimir recibo térmico</button>
   <a class="btn" href="{{ url_for('new_purchase') }}">Nova compra</a>
   <a class="btn ghost" href="{{ url_for('purchases') }}">Voltar</a>
 </div>
 
-<section class="receipt paper">
-  <div class="receipt-header">
+<section class="receipt thermal-receipt paper">
+  <div class="thermal-logo">
     <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
-    <div>
-      <h2>Recibo de compra de materiais</h2>
-      <p><strong>Nº:</strong> {{ '%05d'|format(purchase.id) }} · <strong>Data:</strong> {{ purchase.purchase_date|br_date }}</p>
-    </div>
   </div>
 
-  <div class="receipt-info">
-    <div><span>Fornecedor</span><strong>{{ purchase.person_name_snapshot }}</strong></div>
-    <div><span>Telefone</span><strong>{{ person.phone if person and person.phone else '-' }}</strong></div>
-    <div><span>Documento</span><strong>{{ person.doc if person and person.doc else '-' }}</strong></div>
+  <div class="thermal-title">
+    <h2>RECIBO DE COMPRA</h2>
+    <p>{{ company_name }}</p>
   </div>
 
-  <table class="receipt-table">
-    <thead><tr><th>Material</th><th>Peso</th><th>Preço/kg</th><th>Subtotal</th></tr></thead>
-    <tbody>
+  <div class="thermal-meta">
+    <p><strong>Recibo:</strong> {{ '%05d'|format(purchase.id) }}</p>
+    <p><strong>Data:</strong> {{ purchase.purchase_date|br_date }}</p>
+    <p><strong>Fornecedor:</strong> {{ purchase.person_name_snapshot }}</p>
+    {% if person and person.phone %}<p><strong>Telefone:</strong> {{ person.phone }}</p>{% endif %}
+    {% if person and person.doc %}<p><strong>Documento:</strong> {{ person.doc }}</p>{% endif %}
+  </div>
+
+  <div class="thermal-line"></div>
+
+  <div class="thermal-items">
     {% for item in items %}
-      <tr>
-        <td>{{ item.material_name_snapshot }}</td>
-        <td>{{ item.weight_kg|kg }} kg</td>
-        <td>{{ item.price_per_kg|money }}</td>
-        <td>{{ item.subtotal|money }}</td>
-      </tr>
+      <div class="thermal-item">
+        <div class="thermal-item-name">{{ item.material_name_snapshot }}</div>
+        <div class="thermal-item-calc">
+          <span>{{ item.weight_kg|kg }} kg x {{ item.price_per_kg|money }}/kg</span>
+          <strong>{{ item.subtotal|money }}</strong>
+        </div>
+      </div>
     {% endfor %}
-    </tbody>
-  </table>
+  </div>
+
+  <div class="thermal-line"></div>
+
+  <div class="thermal-totals">
+    <div><span>Peso total</span><strong>{{ purchase.total_kg|kg }} kg</strong></div>
+    <div><span>Total pago</span><strong>{{ purchase.total_amount|money }}</strong></div>
+  </div>
 
   {% if purchase.notes %}
-    <p class="receipt-notes"><strong>Observação:</strong> {{ purchase.notes }}</p>
+    <div class="thermal-line"></div>
+    <p class="receipt-notes"><strong>Obs.:</strong> {{ purchase.notes }}</p>
   {% endif %}
 
-  <div class="receipt-total">
-    <div><span>Peso total</span><strong>{{ purchase.total_kg|kg }} kg</strong></div>
-    <div><span>Total a pagar</span><strong>{{ purchase.total_amount|money }}</strong></div>
-  </div>
-
-  <div class="signatures">
-    <div><span></span><p>Assinatura Eco Recicle</p></div>
-    <div><span></span><p>Assinatura do fornecedor</p></div>
+  <div class="thermal-footer">
+    <div class="thermal-line"></div>
+    <p>Obrigado pela preferência!</p>
+    <small>Recibo gerado pelo sistema Eco Recicle.</small>
   </div>
 </section>
 {% endblock %}
