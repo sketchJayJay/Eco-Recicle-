@@ -1,0 +1,18 @@
+services:
+  eco-recicle:
+    build: .
+    container_name: eco-recicle
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: "troque-essa-chave"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "123456"
+      COMPANY_NAME: "Eco Recicle"
+      DATA_DIR: "/app/data"
+    volumes:
+      - eco_recicle_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  eco_recicle_data:

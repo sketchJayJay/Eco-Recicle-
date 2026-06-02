@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% set page_title = 'Compras registradas' %}
+{% block content %}
+<section class="card">
+  <form class="filterbar" method="get">
+    <input name="q" value="{{ q }}" placeholder="Buscar por fornecedor, material ou observação">
+    <input type="date" name="inicio" value="{{ start }}">
+    <input type="date" name="fim" value="{{ end }}">
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn ghost" href="{{ url_for('purchases') }}">Limpar</a>
+    <a class="btn ghost" href="{{ url_for('export_csv') }}">Exportar CSV</a>
+  </form>
+  <div class="summary-line">
+    <strong>{{ totals.compras }}</strong> compras · <strong>{{ totals.kg|kg }} kg</strong> · <strong>{{ totals.valor|money }}</strong>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Data</th><th>Fornecedor</th><th>Materiais</th><th>Kg</th><th>Valor</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.purchase_date|br_date }}</td>
+          <td>{{ row.person_name_snapshot }}</td>
+          <td>{{ row.materiais or '-' }}</td>
+          <td>{{ row.total_kg|kg }}</td>
+          <td>{{ row.total_amount|money }}</td>
+          <td class="nowrap">
+            <a class="mini" href="{{ url_for('receipt', purchase_id=row.id) }}">Recibo</a>
+            <form method="post" action="{{ url_for('delete_purchase', purchase_id=row.id) }}" class="inline" onsubmit="return confirm('Excluir esta compra?')">
+              <button class="mini danger" type="submit">Excluir</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty">Nenhuma compra encontrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

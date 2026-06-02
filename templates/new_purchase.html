@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% set page_title = 'Nova compra' %}
+{% block content %}
+<form method="post" class="card purchase-form" id="purchaseForm">
+  <div class="grid two-cols">
+    <label>Data da compra
+      <input type="date" name="purchase_date" value="{{ today_iso }}" required>
+    </label>
+    <label>Fornecedor / cliente
+      <input name="person_name" list="peopleList" placeholder="Digite ou selecione" required>
+      <datalist id="peopleList">
+        {% for p in people %}<option value="{{ p.name }}">{{ p.phone or '' }}</option>{% endfor %}
+      </datalist>
+    </label>
+    <label>Telefone
+      <input name="phone" placeholder="(00) 00000-0000">
+    </label>
+    <label>Observação
+      <input name="notes" placeholder="Ex.: pagamento via Pix, retirada, etc.">
+    </label>
+  </div>
+
+  <div class="section-head gap-top">
+    <h2>Materiais comprados</h2>
+    <button type="button" class="btn ghost" id="addItem">+ Adicionar material</button>
+  </div>
+
+  <div id="items" class="items-list"></div>
+
+  <div class="total-box">
+    <div><span>Peso total</span><strong id="totalKg">0,000 kg</strong></div>
+    <div><span>Valor total</span><strong id="totalAmount">R$ 0,00</strong></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" type="submit">Salvar e gerar recibo</button>
+    <a class="btn" href="{{ url_for('dashboard') }}">Cancelar</a>
+  </div>
+</form>
+
+<template id="itemTemplate">
+  <div class="item-row">
+    <label>Material
+      <select name="material_id[]" class="material-select" required>
+        <option value="">Selecione</option>
+        {% for m in materials %}
+          <option value="{{ m.id }}" data-price="{{ '%.2f'|format(m.price_per_kg) }}">{{ m.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Peso (kg)
+      <input name="weight_kg[]" class="weight" inputmode="decimal" placeholder="0,000" required>
+    </label>
+    <label>Preço/kg
+      <input name="price_per_kg[]" class="price" inputmode="decimal" placeholder="0,00" required>
+    </label>
+    <div class="subtotal"><span>Subtotal</span><strong>R$ 0,00</strong></div>
+    <button type="button" class="remove-item" title="Remover">×</button>
+  </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.ECO_MATERIALS_READY = true;
+</script>
+{% endblock %}

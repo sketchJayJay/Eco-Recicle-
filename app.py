@@ -1,0 +1,563 @@
+import csv
+import io
+import os
+import sqlite3
+from datetime import datetime, date
+from functools import wraps
+from typing import Any, Dict, List
+
+from flask import (
+    Flask,
+    Response,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from werkzeug.security import check_password_hash, generate_password_hash
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
+os.makedirs(DATA_DIR, exist_ok=True)
+DATABASE = os.environ.get("DATABASE_PATH", os.path.join(DATA_DIR, "eco_recicle.sqlite3"))
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "troque-essa-chave-no-coolify")
+
+DEFAULT_MATERIALS = [
+    ("Papelão", 0.30),
+    ("Papel", 0.20),
+    ("Filme", 0.30),
+    ("Plástico duro", 0.10),
+    ("Pet", 0.50),
+    ("Alumínio", 8.00),
+    ("Metal", 18.00),
+    ("Cobre", 40.00),
+    ("Fiação de cobre", 15.00),
+    ("Ferro", 0.30),
+    ("Bateria", 2.00),
+]
+
+
+def money(value: float | int | None) -> str:
+    value = float(value or 0)
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def kg(value: float | int | None) -> str:
+    value = float(value or 0)
+    return f"{value:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def br_datetime(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = datetime.fromisoformat(value)
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return value
+
+
+def br_date(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return value
+
+
+app.jinja_env.filters["money"] = money
+app.jinja_env.filters["kg"] = kg
+app.jinja_env.filters["br_datetime"] = br_datetime
+app.jinja_env.filters["br_date"] = br_date
+
+
+def get_db() -> sqlite3.Connection:
+    if "db" not in g:
+        g.db = sqlite3.connect(DATABASE)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(_exc: Exception | None = None) -> None:
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db() -> None:
+    db = get_db()
+    db.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS materials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            price_per_kg REAL NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            doc TEXT,
+            address TEXT,
+            kind TEXT NOT NULL DEFAULT 'fornecedor',
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER,
+            person_name_snapshot TEXT NOT NULL,
+            purchase_date TEXT NOT NULL,
+            notes TEXT,
+            total_kg REAL NOT NULL DEFAULT 0,
+            total_amount REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(person_id) REFERENCES people(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            purchase_id INTEGER NOT NULL,
+            material_id INTEGER,
+            material_name_snapshot TEXT NOT NULL,
+            weight_kg REAL NOT NULL DEFAULT 0,
+            price_per_kg REAL NOT NULL DEFAULT 0,
+            subtotal REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY(purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
+            FOREIGN KEY(material_id) REFERENCES materials(id)
+        );
+        """
+    )
+
+    # Usuário inicial configurável por variável ambiente.
+    admin_user = os.environ.get("ADMIN_USER", "admin")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "123456")
+    exists = db.execute("SELECT id FROM users WHERE username = ?", (admin_user,)).fetchone()
+    if not exists:
+        db.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (admin_user, generate_password_hash(admin_password), datetime.now().isoformat(timespec="seconds")),
+        )
+
+    for name, price in DEFAULT_MATERIALS:
+        db.execute(
+            "INSERT OR IGNORE INTO materials (name, price_per_kg, active, created_at) VALUES (?, ?, 1, ?)",
+            (name, price, datetime.now().isoformat(timespec="seconds")),
+        )
+    db.commit()
+
+
+@app.before_request
+def ensure_db() -> None:
+    init_db()
+
+
+def login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("login"))
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@app.context_processor
+def inject_globals() -> Dict[str, Any]:
+    return {
+        "company_name": os.environ.get("COMPANY_NAME", "Eco Recicle"),
+        "today_iso": date.today().isoformat(),
+    }
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = get_db().execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            return redirect(url_for("dashboard"))
+        flash("Usuário ou senha inválidos.", "error")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.route("/")
+@login_required
+def dashboard():
+    db = get_db()
+    today = date.today().isoformat()
+    month_prefix = today[:7]
+
+    today_summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras
+        FROM purchases WHERE purchase_date = ?
+        """,
+        (today,),
+    ).fetchone()
+    month_summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras
+        FROM purchases WHERE substr(purchase_date,1,7) = ?
+        """,
+        (month_prefix,),
+    ).fetchone()
+    material_totals = db.execute(
+        """
+        SELECT material_name_snapshot AS material, COALESCE(SUM(weight_kg),0) AS kg, COALESCE(SUM(subtotal),0) AS valor
+        FROM purchase_items pi
+        JOIN purchases p ON p.id = pi.purchase_id
+        WHERE substr(p.purchase_date,1,7) = ?
+        GROUP BY material_name_snapshot
+        ORDER BY valor DESC
+        LIMIT 8
+        """,
+        (month_prefix,),
+    ).fetchall()
+    last_purchases = db.execute(
+        """
+        SELECT * FROM purchases ORDER BY purchase_date DESC, id DESC LIMIT 8
+        """
+    ).fetchall()
+    return render_template(
+        "dashboard.html",
+        today_summary=today_summary,
+        month_summary=month_summary,
+        material_totals=material_totals,
+        last_purchases=last_purchases,
+    )
+
+
+@app.route("/compras")
+@login_required
+def purchases():
+    db = get_db()
+    q = request.args.get("q", "").strip()
+    start = request.args.get("inicio", "").strip()
+    end = request.args.get("fim", "").strip()
+
+    clauses = []
+    params: List[Any] = []
+    if q:
+        clauses.append("(p.person_name_snapshot LIKE ? OR p.notes LIKE ? OR EXISTS (SELECT 1 FROM purchase_items pi WHERE pi.purchase_id = p.id AND pi.material_name_snapshot LIKE ?))")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    if start:
+        clauses.append("p.purchase_date >= ?")
+        params.append(start)
+    if end:
+        clauses.append("p.purchase_date <= ?")
+        params.append(end)
+    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+
+    rows = db.execute(
+        f"""
+        SELECT p.*, (
+            SELECT GROUP_CONCAT(material_name_snapshot || ' (' || printf('%.3f', weight_kg) || 'kg)', ', ')
+            FROM purchase_items pi WHERE pi.purchase_id = p.id
+        ) AS materiais
+        FROM purchases p
+        {where}
+        ORDER BY p.purchase_date DESC, p.id DESC
+        LIMIT 300
+        """,
+        params,
+    ).fetchall()
+    totals = db.execute(
+        f"SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras FROM purchases p {where}",
+        params,
+    ).fetchone()
+    return render_template("purchases.html", rows=rows, totals=totals, q=q, start=start, end=end)
+
+
+@app.route("/compras/nova", methods=["GET", "POST"])
+@login_required
+def new_purchase():
+    db = get_db()
+    if request.method == "POST":
+        purchase_date = request.form.get("purchase_date") or date.today().isoformat()
+        person_name = request.form.get("person_name", "").strip() or "Fornecedor sem nome"
+        phone = request.form.get("phone", "").strip()
+        notes = request.form.get("notes", "").strip()
+
+        person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (person_name,)).fetchone()
+        if person:
+            person_id = person["id"]
+            if phone and phone != (person["phone"] or ""):
+                db.execute("UPDATE people SET phone = ? WHERE id = ?", (phone, person_id))
+        else:
+            cur = db.execute(
+                "INSERT INTO people (name, phone, kind, created_at) VALUES (?, ?, 'fornecedor', ?)",
+                (person_name, phone, datetime.now().isoformat(timespec="seconds")),
+            )
+            person_id = cur.lastrowid
+
+        material_ids = request.form.getlist("material_id[]")
+        weights = request.form.getlist("weight_kg[]")
+        prices = request.form.getlist("price_per_kg[]")
+
+        items = []
+        total_kg = 0.0
+        total_amount = 0.0
+        for mat_id, weight_raw, price_raw in zip(material_ids, weights, prices):
+            try:
+                weight = float((weight_raw or "0").replace(",", "."))
+                price = float((price_raw or "0").replace(",", "."))
+            except ValueError:
+                continue
+            if not mat_id or weight <= 0:
+                continue
+            mat = db.execute("SELECT * FROM materials WHERE id = ?", (mat_id,)).fetchone()
+            if not mat:
+                continue
+            subtotal = round(weight * price, 2)
+            total_kg += weight
+            total_amount += subtotal
+            items.append((mat["id"], mat["name"], weight, price, subtotal))
+
+        if not items:
+            flash("Adicione pelo menos um material com peso maior que zero.", "error")
+            return redirect(url_for("new_purchase"))
+
+        cur = db.execute(
+            """
+            INSERT INTO purchases (person_id, person_name_snapshot, purchase_date, notes, total_kg, total_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                person_id,
+                person_name,
+                purchase_date,
+                notes,
+                round(total_kg, 3),
+                round(total_amount, 2),
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        purchase_id = cur.lastrowid
+        db.executemany(
+            """
+            INSERT INTO purchase_items (purchase_id, material_id, material_name_snapshot, weight_kg, price_per_kg, subtotal)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [(purchase_id, mat_id, name, weight, price, subtotal) for mat_id, name, weight, price, subtotal in items],
+        )
+        db.commit()
+        flash("Compra registrada com sucesso.", "success")
+        return redirect(url_for("receipt", purchase_id=purchase_id))
+
+    materials = db.execute("SELECT * FROM materials WHERE active = 1 ORDER BY name").fetchall()
+    people = db.execute("SELECT * FROM people ORDER BY name LIMIT 500").fetchall()
+    return render_template("new_purchase.html", materials=materials, people=people)
+
+
+@app.route("/compras/<int:purchase_id>/recibo")
+@login_required
+def receipt(purchase_id: int):
+    db = get_db()
+    purchase = db.execute("SELECT * FROM purchases WHERE id = ?", (purchase_id,)).fetchone()
+    if not purchase:
+        flash("Compra não encontrada.", "error")
+        return redirect(url_for("purchases"))
+    person = None
+    if purchase["person_id"]:
+        person = db.execute("SELECT * FROM people WHERE id = ?", (purchase["person_id"],)).fetchone()
+    items = db.execute("SELECT * FROM purchase_items WHERE purchase_id = ? ORDER BY id", (purchase_id,)).fetchall()
+    return render_template("receipt.html", purchase=purchase, person=person, items=items)
+
+
+@app.post("/compras/<int:purchase_id>/excluir")
+@login_required
+def delete_purchase(purchase_id: int):
+    db = get_db()
+    db.execute("DELETE FROM purchase_items WHERE purchase_id = ?", (purchase_id,))
+    db.execute("DELETE FROM purchases WHERE id = ?", (purchase_id,))
+    db.commit()
+    flash("Compra excluída.", "success")
+    return redirect(url_for("purchases"))
+
+
+@app.route("/materiais", methods=["GET", "POST"])
+@login_required
+def materials():
+    db = get_db()
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        price = request.form.get("price_per_kg", "0").replace(",", ".")
+        try:
+            price_float = float(price)
+        except ValueError:
+            price_float = 0.0
+        if name:
+            db.execute(
+                "INSERT INTO materials (name, price_per_kg, active, created_at) VALUES (?, ?, 1, ?) ON CONFLICT(name) DO UPDATE SET price_per_kg = excluded.price_per_kg, active = 1",
+                (name, price_float, datetime.now().isoformat(timespec="seconds")),
+            )
+            db.commit()
+            flash("Material salvo.", "success")
+        return redirect(url_for("materials"))
+
+    rows = db.execute("SELECT * FROM materials ORDER BY active DESC, name").fetchall()
+    return render_template("materials.html", rows=rows)
+
+
+@app.post("/materiais/<int:material_id>/editar")
+@login_required
+def edit_material(material_id: int):
+    db = get_db()
+    name = request.form.get("name", "").strip()
+    price = request.form.get("price_per_kg", "0").replace(",", ".")
+    active = 1 if request.form.get("active") == "on" else 0
+    try:
+        price_float = float(price)
+    except ValueError:
+        price_float = 0.0
+    if name:
+        db.execute("UPDATE materials SET name = ?, price_per_kg = ?, active = ? WHERE id = ?", (name, price_float, active, material_id))
+        db.commit()
+        flash("Material atualizado.", "success")
+    return redirect(url_for("materials"))
+
+
+@app.route("/pessoas", methods=["GET", "POST"])
+@login_required
+def people():
+    db = get_db()
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        doc = request.form.get("doc", "").strip()
+        address = request.form.get("address", "").strip()
+        if name:
+            db.execute(
+                "INSERT INTO people (name, phone, doc, address, kind, created_at) VALUES (?, ?, ?, ?, 'fornecedor', ?)",
+                (name, phone, doc, address, datetime.now().isoformat(timespec="seconds")),
+            )
+            db.commit()
+            flash("Fornecedor salvo.", "success")
+        return redirect(url_for("people"))
+
+    q = request.args.get("q", "").strip()
+    params: List[Any] = []
+    where = ""
+    if q:
+        where = "WHERE name LIKE ? OR phone LIKE ? OR doc LIKE ?"
+        params = [f"%{q}%", f"%{q}%", f"%{q}%"]
+    rows = db.execute(f"SELECT * FROM people {where} ORDER BY name LIMIT 500", params).fetchall()
+    return render_template("people.html", rows=rows, q=q)
+
+
+@app.post("/pessoas/<int:person_id>/editar")
+@login_required
+def edit_person(person_id: int):
+    db = get_db()
+    db.execute(
+        "UPDATE people SET name = ?, phone = ?, doc = ?, address = ? WHERE id = ?",
+        (
+            request.form.get("name", "").strip(),
+            request.form.get("phone", "").strip(),
+            request.form.get("doc", "").strip(),
+            request.form.get("address", "").strip(),
+            person_id,
+        ),
+    )
+    db.commit()
+    flash("Fornecedor atualizado.", "success")
+    return redirect(url_for("people"))
+
+
+@app.route("/relatorios")
+@login_required
+def reports():
+    db = get_db()
+    start = request.args.get("inicio", date.today().replace(day=1).isoformat())
+    end = request.args.get("fim", date.today().isoformat())
+    summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras
+        FROM purchases WHERE purchase_date BETWEEN ? AND ?
+        """,
+        (start, end),
+    ).fetchone()
+    by_material = db.execute(
+        """
+        SELECT pi.material_name_snapshot AS material, COALESCE(SUM(pi.weight_kg),0) AS kg, COALESCE(SUM(pi.subtotal),0) AS valor
+        FROM purchase_items pi
+        JOIN purchases p ON p.id = pi.purchase_id
+        WHERE p.purchase_date BETWEEN ? AND ?
+        GROUP BY pi.material_name_snapshot
+        ORDER BY valor DESC
+        """,
+        (start, end),
+    ).fetchall()
+    by_person = db.execute(
+        """
+        SELECT person_name_snapshot AS pessoa, COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras
+        FROM purchases
+        WHERE purchase_date BETWEEN ? AND ?
+        GROUP BY person_name_snapshot
+        ORDER BY valor DESC
+        LIMIT 20
+        """,
+        (start, end),
+    ).fetchall()
+    return render_template("reports.html", start=start, end=end, summary=summary, by_material=by_material, by_person=by_person)
+
+
+@app.route("/exportar/compras.csv")
+@login_required
+def export_csv():
+    db = get_db()
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";")
+    writer.writerow(["ID", "Data", "Fornecedor", "Material", "Kg", "Preco por kg", "Subtotal", "Observacao"])
+    rows = db.execute(
+        """
+        SELECT p.id, p.purchase_date, p.person_name_snapshot, pi.material_name_snapshot, pi.weight_kg, pi.price_per_kg, pi.subtotal, p.notes
+        FROM purchases p
+        JOIN purchase_items pi ON pi.purchase_id = p.id
+        ORDER BY p.purchase_date DESC, p.id DESC
+        """
+    ).fetchall()
+    for r in rows:
+        writer.writerow([r["id"], br_date(r["purchase_date"]), r["person_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["notes"] or ""])
+    data = output.getvalue().encode("utf-8-sig")
+    return Response(
+        data,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=compras_eco_recicle.csv"},
+    )
+
+
+@app.route("/saude")
+def healthcheck():
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)

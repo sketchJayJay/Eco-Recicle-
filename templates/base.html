@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or company_name }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
+    </a>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">🏠 Início</a>
+      <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}">➕ Nova compra</a>
+      <a href="{{ url_for('purchases') }}" class="{{ 'active' if request.endpoint == 'purchases' else '' }}">♻️ Compras</a>
+      <a href="{{ url_for('materials') }}" class="{{ 'active' if request.endpoint == 'materials' else '' }}">⚖️ Materiais</a>
+      <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Fornecedores</a>
+      <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}">📊 Relatórios</a>
+    </nav>
+    <div class="sidebar-footer">
+      <small>Logado: {{ session.get('username') }}</small>
+      <a class="logout" href="{{ url_for('logout') }}">Sair</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Sistema de reciclagem</p>
+        <h1>{{ page_title or company_name }}</h1>
+      </div>
+      <a class="btn primary" href="{{ url_for('new_purchase') }}">Nova compra</a>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="messages">
+        {% for category, msg in messages %}
+          <div class="alert {{ category }}">{{ msg }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

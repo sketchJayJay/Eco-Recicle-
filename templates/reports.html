@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% set page_title = 'Relatórios' %}
+{% block content %}
+<section class="card">
+  <form class="filterbar" method="get">
+    <label>Início <input type="date" name="inicio" value="{{ start }}"></label>
+    <label>Fim <input type="date" name="fim" value="{{ end }}"></label>
+    <button class="btn" type="submit">Gerar</button>
+  </form>
+</section>
+
+<section class="grid cards-3 gap-top">
+  <article class="card metric"><span>Compras</span><strong>{{ summary.compras }}</strong><small>no período</small></article>
+  <article class="card metric"><span>Peso</span><strong>{{ summary.kg|kg }}</strong><small>kg comprados</small></article>
+  <article class="card metric green"><span>Valor</span><strong>{{ summary.valor|money }}</strong><small>total comprado</small></article>
+</section>
+
+<section class="grid two-cols gap-top">
+  <article class="card">
+    <h2>Por material</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor</th></tr></thead>
+        <tbody>
+        {% for row in by_material %}
+          <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+        {% else %}
+          <tr><td colspan="3" class="empty">Sem dados no período.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+  <article class="card">
+    <h2>Por fornecedor</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fornecedor</th><th>Compras</th><th>Kg</th><th>Valor</th></tr></thead>
+        <tbody>
+        {% for row in by_person %}
+          <tr><td>{{ row.pessoa }}</td><td>{{ row.compras }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+        {% else %}
+          <tr><td colspan="4" class="empty">Sem dados no período.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+{% endblock %}

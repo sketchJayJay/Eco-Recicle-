@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% set page_title = 'Fornecedores' %}
+{% block content %}
+<section class="grid two-cols">
+  <form method="post" class="card stack">
+    <h2>Novo fornecedor</h2>
+    <label>Nome
+      <input name="name" required>
+    </label>
+    <label>Telefone
+      <input name="phone">
+    </label>
+    <label>CPF/CNPJ
+      <input name="doc">
+    </label>
+    <label>Endereço
+      <input name="address">
+    </label>
+    <button class="btn primary" type="submit">Salvar fornecedor</button>
+  </form>
+  <section class="card">
+    <h2>Buscar</h2>
+    <form method="get" class="filterbar compact">
+      <input name="q" value="{{ q }}" placeholder="Nome, telefone ou documento">
+      <button class="btn" type="submit">Buscar</button>
+    </form>
+  </section>
+</section>
+
+<section class="card gap-top">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>Telefone</th><th>CPF/CNPJ</th><th>Endereço</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <form method="post" action="{{ url_for('edit_person', person_id=row.id) }}">
+            <td><input name="name" value="{{ row.name }}" required></td>
+            <td><input name="phone" value="{{ row.phone or '' }}"></td>
+            <td><input name="doc" value="{{ row.doc or '' }}"></td>
+            <td><input name="address" value="{{ row.address or '' }}"></td>
+            <td><button class="mini" type="submit">Salvar</button></td>
+          </form>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty">Nenhum fornecedor cadastrado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

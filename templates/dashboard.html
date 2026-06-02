@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% set page_title = 'Painel geral' %}
+{% block content %}
+<section class="grid cards-4">
+  <article class="card metric">
+    <span>Compras hoje</span>
+    <strong>{{ today_summary.compras }}</strong>
+    <small>{{ today_summary.kg|kg }} kg</small>
+  </article>
+  <article class="card metric green">
+    <span>Total hoje</span>
+    <strong>{{ today_summary.valor|money }}</strong>
+    <small>valor comprado</small>
+  </article>
+  <article class="card metric">
+    <span>Compras no mês</span>
+    <strong>{{ month_summary.compras }}</strong>
+    <small>{{ month_summary.kg|kg }} kg</small>
+  </article>
+  <article class="card metric green">
+    <span>Total no mês</span>
+    <strong>{{ month_summary.valor|money }}</strong>
+    <small>gasto mensal</small>
+  </article>
+</section>
+
+<section class="grid two-cols gap-top">
+  <article class="card">
+    <div class="section-head">
+      <h2>Materiais do mês</h2>
+      <a href="{{ url_for('reports') }}">Ver relatório</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% for row in material_totals %}
+          <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">Nenhum lançamento neste mês.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+  <article class="card">
+    <div class="section-head">
+      <h2>Últimas compras</h2>
+      <a href="{{ url_for('purchases') }}">Ver todas</a>
+    </div>
+    <div class="timeline">
+      {% for compra in last_purchases %}
+        <a class="timeline-item" href="{{ url_for('receipt', purchase_id=compra.id) }}">
+          <span>{{ compra.purchase_date|br_date }}</span>
+          <strong>{{ compra.person_name_snapshot }}</strong>
+          <em>{{ compra.total_kg|kg }} kg · {{ compra.total_amount|money }}</em>
+        </a>
+      {% else %}
+        <p class="empty">Ainda não tem compra lançada. Bora estrear o sistema.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

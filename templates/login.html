@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar - {{ company_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}" class="login-logo">
+    <h1>Acesso ao sistema</h1>
+    <p>Controle de compras, materiais, fornecedores e recibos.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}<div class="alert {{ category }}">{{ msg }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="post" class="stack">
+      <label>Usuário
+        <input name="username" placeholder="admin" autofocus required>
+      </label>
+      <label>Senha
+        <input name="password" type="password" placeholder="123456" required>
+      </label>
+      <button class="btn primary full" type="submit">Entrar</button>
+    </form>
+    <small class="hint">Padrão: admin / 123456. Troque no Coolify pelas variáveis ADMIN_USER e ADMIN_PASSWORD.</small>
+  </div>
+</body>
+</html>

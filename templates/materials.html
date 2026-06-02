@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% set page_title = 'Tabela de materiais' %}
+{% block content %}
+<section class="grid two-cols">
+  <form method="post" class="card stack">
+    <h2>Novo material ou atualizar preço</h2>
+    <label>Nome
+      <input name="name" placeholder="Ex.: Latinha" required>
+    </label>
+    <label>Preço por kg
+      <input name="price_per_kg" inputmode="decimal" placeholder="0,00" required>
+    </label>
+    <button class="btn primary" type="submit">Salvar material</button>
+  </form>
+  <article class="card soft-note">
+    <h2>Preços cadastrados</h2>
+    <p>Esses valores entram automaticamente quando você faz uma nova compra. Dá para ajustar cada um aqui quando o preço mudar.</p>
+  </article>
+</section>
+
+<section class="card gap-top">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Material</th><th>Preço/kg</th><th>Ativo</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <form method="post" action="{{ url_for('edit_material', material_id=row.id) }}">
+            <td><input name="name" value="{{ row.name }}" required></td>
+            <td><input name="price_per_kg" value="{{ '%.2f'|format(row.price_per_kg) }}" required></td>
+            <td><input type="checkbox" name="active" {% if row.active %}checked{% endif %}></td>
+            <td><button class="mini" type="submit">Salvar</button></td>
+          </form>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
