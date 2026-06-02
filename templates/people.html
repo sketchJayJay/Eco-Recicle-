@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% set page_title = 'Fornecedores' %}
+{% set page_title = 'Pessoas cadastradas' %}
 {% block content %}
 <section class="grid two-cols">
   <form method="post" class="card stack">
-    <h2>Novo fornecedor</h2>
+    <h2>Novo fornecedor ou comprador</h2>
     <label>Nome
       <input name="name" required>
     </label>
@@ -16,7 +16,7 @@
     <label>Endereço
       <input name="address">
     </label>
-    <button class="btn primary" type="submit">Salvar fornecedor</button>
+    <button class="btn primary" type="submit">Salvar pessoa</button>
   </form>
   <section class="card">
     <h2>Buscar</h2>
@@ -43,7 +43,7 @@
           </form>
         </tr>
       {% else %}
-        <tr><td colspan="5" class="empty">Nenhum fornecedor cadastrado.</td></tr>
+        <tr><td colspan="5" class="empty">Nenhuma pessoa cadastrada.</td></tr>
       {% endfor %}
       </tbody>
     </table>

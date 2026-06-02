@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% set page_title = 'Recebimentos do caminhão' %}
+{% block content %}
+<section class="card">
+  <form class="filterbar" method="get">
+    <input name="q" value="{{ q }}" placeholder="Buscar por comprador, material ou observação">
+    <input type="date" name="inicio" value="{{ start }}">
+    <input type="date" name="fim" value="{{ end }}">
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn ghost" href="{{ url_for('sales') }}">Limpar</a>
+    <a class="btn ghost" href="{{ url_for('export_sales_csv') }}">Exportar CSV</a>
+  </form>
+  <div class="summary-line">
+    <strong>{{ totals.vendas }}</strong> vendas · <strong>{{ totals.kg|kg }} kg</strong> · <strong>{{ totals.valor|money }}</strong> recebido
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Data</th><th>Comprador/caminhão</th><th>Materiais</th><th>Kg</th><th>Recebido</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.sale_date|br_date }}</td>
+          <td>{{ row.buyer_name_snapshot }}</td>
+          <td>{{ row.materiais or '-' }}</td>
+          <td>{{ row.total_kg|kg }}</td>
+          <td>{{ row.total_amount|money }}</td>
+          <td class="nowrap">
+            <a class="mini" href="{{ url_for('sale_receipt', sale_id=row.id) }}">Comprovante</a>
+            <form method="post" action="{{ url_for('delete_sale', sale_id=row.id) }}" class="inline" onsubmit="return confirm('Excluir esta venda?')">
+              <button class="mini danger" type="submit">Excluir</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty">Nenhuma venda/retirada encontrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

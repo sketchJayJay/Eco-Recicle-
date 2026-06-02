@@ -10,35 +10,68 @@
 </section>
 
 <section class="grid cards-3 gap-top">
-  <article class="card metric"><span>Compras</span><strong>{{ summary.compras }}</strong><small>no período</small></article>
-  <article class="card metric"><span>Peso</span><strong>{{ summary.kg|kg }}</strong><small>kg comprados</small></article>
-  <article class="card metric green"><span>Valor</span><strong>{{ summary.valor|money }}</strong><small>total comprado</small></article>
+  <article class="card metric"><span>Total pago</span><strong>{{ summary.valor|money }}</strong><small>{{ summary.kg|kg }} kg comprados</small></article>
+  <article class="card metric green"><span>Total recebido</span><strong>{{ sales_summary.valor|money }}</strong><small>{{ sales_summary.kg|kg }} kg vendidos</small></article>
+  <article class="card metric"><span>Resultado bruto</span><strong>{{ result|money }}</strong><small>recebido - pago</small></article>
 </section>
 
 <section class="grid two-cols gap-top">
   <article class="card">
-    <h2>Por material</h2>
+    <h2>Compras por material</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Material</th><th>Kg</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor pago</th></tr></thead>
         <tbody>
         {% for row in by_material %}
           <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
         {% else %}
-          <tr><td colspan="3" class="empty">Sem dados no período.</td></tr>
+          <tr><td colspan="3" class="empty">Sem compras no período.</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   </article>
   <article class="card">
-    <h2>Por fornecedor</h2>
+    <h2>Vendas por material</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Fornecedor</th><th>Compras</th><th>Kg</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor recebido</th></tr></thead>
+        <tbody>
+        {% for row in by_sale_material %}
+          <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+        {% else %}
+          <tr><td colspan="3" class="empty">Sem vendas no período.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="grid two-cols gap-top">
+  <article class="card">
+    <h2>Compras por fornecedor</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fornecedor</th><th>Compras</th><th>Kg</th><th>Valor pago</th></tr></thead>
         <tbody>
         {% for row in by_person %}
           <tr><td>{{ row.pessoa }}</td><td>{{ row.compras }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+        {% else %}
+          <tr><td colspan="4" class="empty">Sem dados no período.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+  <article class="card">
+    <h2>Vendas por comprador/caminhão</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Comprador</th><th>Vendas</th><th>Kg</th><th>Valor recebido</th></tr></thead>
+        <tbody>
+        {% for row in by_buyer %}
+          <tr><td>{{ row.pessoa }}</td><td>{{ row.vendas }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
         {% else %}
           <tr><td colspan="4" class="empty">Sem dados no período.</td></tr>
         {% endfor %}

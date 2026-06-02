@@ -1,6 +1,15 @@
 # Sistema Eco Recicle
 
-Sistema web simples para reciclagem: compras por kg, materiais com preço automático, fornecedores, recibo de compra, relatórios e exportação CSV.
+Sistema web para reciclagem: compras por kg, vendas/retiradas do caminhão, materiais com preço automático, pessoas cadastradas, recibo térmico para cliente, comprovante de venda, relatórios e exportação CSV.
+
+## O que tem nessa versão
+
+- Compra de materiais dos clientes/fornecedores.
+- Recibo de compra em formato térmico 58mm, sem assinatura.
+- Venda/retirada do caminhão, para registrar quando o dono da reciclagem recebe.
+- Preço de compra/kg e preço de venda/kg separados.
+- Relatório com total pago, total recebido e resultado bruto.
+- Exportação CSV de compras e vendas.
 
 ## Login padrão
 
@@ -30,6 +39,8 @@ DATA_DIR=/app/data
 - Fiação de cobre: R$ 15,00/kg
 - Ferro: R$ 0,30/kg
 - Bateria: R$ 2,00/kg
+
+Esses valores entram como preço de compra e também como preço inicial de venda. Depois dá para ajustar o preço de venda em **Materiais**.
 
 ## Rodar localmente
 

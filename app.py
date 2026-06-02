@@ -106,6 +106,7 @@ def init_db() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             price_per_kg REAL NOT NULL DEFAULT 0,
+            sale_price_per_kg REAL NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL
         );
@@ -143,8 +144,38 @@ def init_db() -> None:
             FOREIGN KEY(purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
             FOREIGN KEY(material_id) REFERENCES materials(id)
         );
+
+        CREATE TABLE IF NOT EXISTS sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER,
+            buyer_name_snapshot TEXT NOT NULL,
+            sale_date TEXT NOT NULL,
+            notes TEXT,
+            total_kg REAL NOT NULL DEFAULT 0,
+            total_amount REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(person_id) REFERENCES people(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS sale_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sale_id INTEGER NOT NULL,
+            material_id INTEGER,
+            material_name_snapshot TEXT NOT NULL,
+            weight_kg REAL NOT NULL DEFAULT 0,
+            price_per_kg REAL NOT NULL DEFAULT 0,
+            subtotal REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY(sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+            FOREIGN KEY(material_id) REFERENCES materials(id)
+        );
         """
     )
+
+    # Migração simples para bancos que já estavam rodando antes da tela de venda.
+    material_columns = {row["name"] for row in db.execute("PRAGMA table_info(materials)").fetchall()}
+    if "sale_price_per_kg" not in material_columns:
+        db.execute("ALTER TABLE materials ADD COLUMN sale_price_per_kg REAL NOT NULL DEFAULT 0")
+        db.execute("UPDATE materials SET sale_price_per_kg = price_per_kg WHERE sale_price_per_kg = 0")
 
     # Usuário inicial configurável por variável ambiente.
     admin_user = os.environ.get("ADMIN_USER", "admin")
@@ -158,8 +189,8 @@ def init_db() -> None:
 
     for name, price in DEFAULT_MATERIALS:
         db.execute(
-            "INSERT OR IGNORE INTO materials (name, price_per_kg, active, created_at) VALUES (?, ?, 1, ?)",
-            (name, price, datetime.now().isoformat(timespec="seconds")),
+            "INSERT OR IGNORE INTO materials (name, price_per_kg, sale_price_per_kg, active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (name, price, price, datetime.now().isoformat(timespec="seconds")),
         )
     db.commit()
 
@@ -221,10 +252,24 @@ def dashboard():
         """,
         (today,),
     ).fetchone()
+    today_sales_summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS vendas
+        FROM sales WHERE sale_date = ?
+        """,
+        (today,),
+    ).fetchone()
     month_summary = db.execute(
         """
         SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS compras
         FROM purchases WHERE substr(purchase_date,1,7) = ?
+        """,
+        (month_prefix,),
+    ).fetchone()
+    month_sales_summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS vendas
+        FROM sales WHERE substr(sale_date,1,7) = ?
         """,
         (month_prefix,),
     ).fetchone()
@@ -240,17 +285,39 @@ def dashboard():
         """,
         (month_prefix,),
     ).fetchall()
+    sales_material_totals = db.execute(
+        """
+        SELECT material_name_snapshot AS material, COALESCE(SUM(weight_kg),0) AS kg, COALESCE(SUM(subtotal),0) AS valor
+        FROM sale_items si
+        JOIN sales s ON s.id = si.sale_id
+        WHERE substr(s.sale_date,1,7) = ?
+        GROUP BY material_name_snapshot
+        ORDER BY valor DESC
+        LIMIT 8
+        """,
+        (month_prefix,),
+    ).fetchall()
     last_purchases = db.execute(
         """
         SELECT * FROM purchases ORDER BY purchase_date DESC, id DESC LIMIT 8
         """
     ).fetchall()
+    last_sales = db.execute(
+        """
+        SELECT * FROM sales ORDER BY sale_date DESC, id DESC LIMIT 8
+        """
+    ).fetchall()
     return render_template(
         "dashboard.html",
         today_summary=today_summary,
+        today_sales_summary=today_sales_summary,
         month_summary=month_summary,
+        month_sales_summary=month_sales_summary,
+        month_result=(month_sales_summary["valor"] or 0) - (month_summary["valor"] or 0),
         material_totals=material_totals,
+        sales_material_totals=sales_material_totals,
         last_purchases=last_purchases,
+        last_sales=last_sales,
     )
 
 
@@ -402,6 +469,154 @@ def delete_purchase(purchase_id: int):
     return redirect(url_for("purchases"))
 
 
+@app.route("/vendas")
+@login_required
+def sales():
+    db = get_db()
+    q = request.args.get("q", "").strip()
+    start = request.args.get("inicio", "").strip()
+    end = request.args.get("fim", "").strip()
+
+    clauses = []
+    params: List[Any] = []
+    if q:
+        clauses.append("(s.buyer_name_snapshot LIKE ? OR s.notes LIKE ? OR EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.material_name_snapshot LIKE ?))")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    if start:
+        clauses.append("s.sale_date >= ?")
+        params.append(start)
+    if end:
+        clauses.append("s.sale_date <= ?")
+        params.append(end)
+    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+
+    rows = db.execute(
+        f"""
+        SELECT s.*, (
+            SELECT GROUP_CONCAT(material_name_snapshot || ' (' || printf('%.3f', weight_kg) || 'kg)', ', ')
+            FROM sale_items si WHERE si.sale_id = s.id
+        ) AS materiais
+        FROM sales s
+        {where}
+        ORDER BY s.sale_date DESC, s.id DESC
+        LIMIT 300
+        """,
+        params,
+    ).fetchall()
+    totals = db.execute(
+        f"SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS vendas FROM sales s {where}",
+        params,
+    ).fetchone()
+    return render_template("sales.html", rows=rows, totals=totals, q=q, start=start, end=end)
+
+
+@app.route("/vendas/nova", methods=["GET", "POST"])
+@login_required
+def new_sale():
+    db = get_db()
+    if request.method == "POST":
+        sale_date = request.form.get("sale_date") or date.today().isoformat()
+        buyer_name = request.form.get("buyer_name", "").strip() or "Comprador sem nome"
+        phone = request.form.get("phone", "").strip()
+        notes = request.form.get("notes", "").strip()
+
+        person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (buyer_name,)).fetchone()
+        if person:
+            person_id = person["id"]
+            if phone and phone != (person["phone"] or ""):
+                db.execute("UPDATE people SET phone = ? WHERE id = ?", (phone, person_id))
+        else:
+            cur = db.execute(
+                "INSERT INTO people (name, phone, kind, created_at) VALUES (?, ?, 'comprador', ?)",
+                (buyer_name, phone, datetime.now().isoformat(timespec="seconds")),
+            )
+            person_id = cur.lastrowid
+
+        material_ids = request.form.getlist("material_id[]")
+        weights = request.form.getlist("weight_kg[]")
+        prices = request.form.getlist("price_per_kg[]")
+
+        items = []
+        total_kg = 0.0
+        total_amount = 0.0
+        for mat_id, weight_raw, price_raw in zip(material_ids, weights, prices):
+            try:
+                weight = float((weight_raw or "0").replace(",", "."))
+                price = float((price_raw or "0").replace(",", "."))
+            except ValueError:
+                continue
+            if not mat_id or weight <= 0:
+                continue
+            mat = db.execute("SELECT * FROM materials WHERE id = ?", (mat_id,)).fetchone()
+            if not mat:
+                continue
+            subtotal = round(weight * price, 2)
+            total_kg += weight
+            total_amount += subtotal
+            items.append((mat["id"], mat["name"], weight, price, subtotal))
+
+        if not items:
+            flash("Adicione pelo menos um material com peso maior que zero.", "error")
+            return redirect(url_for("new_sale"))
+
+        cur = db.execute(
+            """
+            INSERT INTO sales (person_id, buyer_name_snapshot, sale_date, notes, total_kg, total_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                person_id,
+                buyer_name,
+                sale_date,
+                notes,
+                round(total_kg, 3),
+                round(total_amount, 2),
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        sale_id = cur.lastrowid
+        db.executemany(
+            """
+            INSERT INTO sale_items (sale_id, material_id, material_name_snapshot, weight_kg, price_per_kg, subtotal)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [(sale_id, mat_id, name, weight, price, subtotal) for mat_id, name, weight, price, subtotal in items],
+        )
+        db.commit()
+        flash("Venda/retirada registrada com sucesso.", "success")
+        return redirect(url_for("sale_receipt", sale_id=sale_id))
+
+    materials = db.execute("SELECT * FROM materials WHERE active = 1 ORDER BY name").fetchall()
+    people = db.execute("SELECT * FROM people ORDER BY name LIMIT 500").fetchall()
+    return render_template("new_sale.html", materials=materials, people=people)
+
+
+@app.route("/vendas/<int:sale_id>/recibo")
+@login_required
+def sale_receipt(sale_id: int):
+    db = get_db()
+    sale = db.execute("SELECT * FROM sales WHERE id = ?", (sale_id,)).fetchone()
+    if not sale:
+        flash("Venda não encontrada.", "error")
+        return redirect(url_for("sales"))
+    person = None
+    if sale["person_id"]:
+        person = db.execute("SELECT * FROM people WHERE id = ?", (sale["person_id"],)).fetchone()
+    items = db.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", (sale_id,)).fetchall()
+    return render_template("sale_receipt.html", sale=sale, person=person, items=items)
+
+
+@app.post("/vendas/<int:sale_id>/excluir")
+@login_required
+def delete_sale(sale_id: int):
+    db = get_db()
+    db.execute("DELETE FROM sale_items WHERE sale_id = ?", (sale_id,))
+    db.execute("DELETE FROM sales WHERE id = ?", (sale_id,))
+    db.commit()
+    flash("Venda excluída.", "success")
+    return redirect(url_for("sales"))
+
+
 @app.route("/materiais", methods=["GET", "POST"])
 @login_required
 def materials():
@@ -409,14 +624,19 @@ def materials():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         price = request.form.get("price_per_kg", "0").replace(",", ".")
+        sale_price = request.form.get("sale_price_per_kg", price).replace(",", ".")
         try:
             price_float = float(price)
         except ValueError:
             price_float = 0.0
+        try:
+            sale_price_float = float(sale_price)
+        except ValueError:
+            sale_price_float = price_float
         if name:
             db.execute(
-                "INSERT INTO materials (name, price_per_kg, active, created_at) VALUES (?, ?, 1, ?) ON CONFLICT(name) DO UPDATE SET price_per_kg = excluded.price_per_kg, active = 1",
-                (name, price_float, datetime.now().isoformat(timespec="seconds")),
+                "INSERT INTO materials (name, price_per_kg, sale_price_per_kg, active, created_at) VALUES (?, ?, ?, 1, ?) ON CONFLICT(name) DO UPDATE SET price_per_kg = excluded.price_per_kg, sale_price_per_kg = excluded.sale_price_per_kg, active = 1",
+                (name, price_float, sale_price_float, datetime.now().isoformat(timespec="seconds")),
             )
             db.commit()
             flash("Material salvo.", "success")
@@ -432,13 +652,18 @@ def edit_material(material_id: int):
     db = get_db()
     name = request.form.get("name", "").strip()
     price = request.form.get("price_per_kg", "0").replace(",", ".")
+    sale_price = request.form.get("sale_price_per_kg", price).replace(",", ".")
     active = 1 if request.form.get("active") == "on" else 0
     try:
         price_float = float(price)
     except ValueError:
         price_float = 0.0
+    try:
+        sale_price_float = float(sale_price)
+    except ValueError:
+        sale_price_float = price_float
     if name:
-        db.execute("UPDATE materials SET name = ?, price_per_kg = ?, active = ? WHERE id = ?", (name, price_float, active, material_id))
+        db.execute("UPDATE materials SET name = ?, price_per_kg = ?, sale_price_per_kg = ?, active = ? WHERE id = ?", (name, price_float, sale_price_float, active, material_id))
         db.commit()
         flash("Material atualizado.", "success")
     return redirect(url_for("materials"))
@@ -459,7 +684,7 @@ def people():
                 (name, phone, doc, address, datetime.now().isoformat(timespec="seconds")),
             )
             db.commit()
-            flash("Fornecedor salvo.", "success")
+            flash("Pessoa salva.", "success")
         return redirect(url_for("people"))
 
     q = request.args.get("q", "").strip()
@@ -487,7 +712,7 @@ def edit_person(person_id: int):
         ),
     )
     db.commit()
-    flash("Fornecedor atualizado.", "success")
+    flash("Pessoa atualizada.", "success")
     return redirect(url_for("people"))
 
 
@@ -504,6 +729,13 @@ def reports():
         """,
         (start, end),
     ).fetchone()
+    sales_summary = db.execute(
+        """
+        SELECT COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS vendas
+        FROM sales WHERE sale_date BETWEEN ? AND ?
+        """,
+        (start, end),
+    ).fetchone()
     by_material = db.execute(
         """
         SELECT pi.material_name_snapshot AS material, COALESCE(SUM(pi.weight_kg),0) AS kg, COALESCE(SUM(pi.subtotal),0) AS valor
@@ -511,6 +743,17 @@ def reports():
         JOIN purchases p ON p.id = pi.purchase_id
         WHERE p.purchase_date BETWEEN ? AND ?
         GROUP BY pi.material_name_snapshot
+        ORDER BY valor DESC
+        """,
+        (start, end),
+    ).fetchall()
+    by_sale_material = db.execute(
+        """
+        SELECT si.material_name_snapshot AS material, COALESCE(SUM(si.weight_kg),0) AS kg, COALESCE(SUM(si.subtotal),0) AS valor
+        FROM sale_items si
+        JOIN sales s ON s.id = si.sale_id
+        WHERE s.sale_date BETWEEN ? AND ?
+        GROUP BY si.material_name_snapshot
         ORDER BY valor DESC
         """,
         (start, end),
@@ -526,7 +769,29 @@ def reports():
         """,
         (start, end),
     ).fetchall()
-    return render_template("reports.html", start=start, end=end, summary=summary, by_material=by_material, by_person=by_person)
+    by_buyer = db.execute(
+        """
+        SELECT buyer_name_snapshot AS pessoa, COALESCE(SUM(total_kg),0) AS kg, COALESCE(SUM(total_amount),0) AS valor, COUNT(*) AS vendas
+        FROM sales
+        WHERE sale_date BETWEEN ? AND ?
+        GROUP BY buyer_name_snapshot
+        ORDER BY valor DESC
+        LIMIT 20
+        """,
+        (start, end),
+    ).fetchall()
+    return render_template(
+        "reports.html",
+        start=start,
+        end=end,
+        summary=summary,
+        sales_summary=sales_summary,
+        result=(sales_summary["valor"] or 0) - (summary["valor"] or 0),
+        by_material=by_material,
+        by_sale_material=by_sale_material,
+        by_person=by_person,
+        by_buyer=by_buyer,
+    )
 
 
 @app.route("/exportar/compras.csv")
@@ -551,6 +816,31 @@ def export_csv():
         data,
         mimetype="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=compras_eco_recicle.csv"},
+    )
+
+
+@app.route("/exportar/vendas.csv")
+@login_required
+def export_sales_csv():
+    db = get_db()
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";")
+    writer.writerow(["ID", "Data", "Comprador", "Material", "Kg", "Preco por kg", "Subtotal", "Observacao"])
+    rows = db.execute(
+        """
+        SELECT s.id, s.sale_date, s.buyer_name_snapshot, si.material_name_snapshot, si.weight_kg, si.price_per_kg, si.subtotal, s.notes
+        FROM sales s
+        JOIN sale_items si ON si.sale_id = s.id
+        ORDER BY s.sale_date DESC, s.id DESC
+        """
+    ).fetchall()
+    for r in rows:
+        writer.writerow([r["id"], br_date(r["sale_date"]), r["buyer_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["notes"] or ""])
+    data = output.getvalue().encode("utf-8-sig")
+    return Response(
+        data,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=vendas_eco_recicle.csv"},
     )
 
 

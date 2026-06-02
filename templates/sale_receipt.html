@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% set page_title = 'Comprovante de venda' %}
+{% block content %}
+<div class="receipt-actions no-print">
+  <button class="btn primary" onclick="window.print()">Imprimir comprovante</button>
+  <a class="btn" href="{{ url_for('new_sale') }}">Nova venda</a>
+  <a class="btn ghost" href="{{ url_for('sales') }}">Voltar</a>
+</div>
+
+<section class="receipt thermal-receipt paper">
+  <div class="thermal-logo">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
+  </div>
+
+  <div class="thermal-title">
+    <h2>COMPROVANTE DE VENDA</h2>
+    <p>{{ company_name }}</p>
+  </div>
+
+  <div class="thermal-meta">
+    <p><strong>Nº:</strong> {{ '%05d'|format(sale.id) }}</p>
+    <p><strong>Data:</strong> {{ sale.sale_date|br_date }}</p>
+    <p><strong>Comprador:</strong> {{ sale.buyer_name_snapshot }}</p>
+    {% if person and person.phone %}<p><strong>Telefone:</strong> {{ person.phone }}</p>{% endif %}
+    {% if person and person.doc %}<p><strong>Documento:</strong> {{ person.doc }}</p>{% endif %}
+  </div>
+
+  <div class="thermal-line"></div>
+
+  <div class="thermal-items">
+    {% for item in items %}
+      <div class="thermal-item">
+        <div class="thermal-item-name">{{ item.material_name_snapshot }}</div>
+        <div class="thermal-item-calc">
+          <span>{{ item.weight_kg|kg }} kg x {{ item.price_per_kg|money }}/kg</span>
+          <strong>{{ item.subtotal|money }}</strong>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="thermal-line"></div>
+
+  <div class="thermal-totals">
+    <div><span>Peso vendido</span><strong>{{ sale.total_kg|kg }} kg</strong></div>
+    <div><span>Total recebido</span><strong>{{ sale.total_amount|money }}</strong></div>
+  </div>
+
+  {% if sale.notes %}
+    <div class="thermal-line"></div>
+    <p class="receipt-notes"><strong>Obs.:</strong> {{ sale.notes }}</p>
+  {% endif %}
+
+  <div class="thermal-footer">
+    <div class="thermal-line"></div>
+    <p>Venda registrada com sucesso.</p>
+    <small>Comprovante gerado pelo sistema Eco Recicle.</small>
+  </div>
+</section>
+{% endblock %}

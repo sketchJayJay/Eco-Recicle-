@@ -8,41 +8,80 @@
     <small>{{ today_summary.kg|kg }} kg</small>
   </article>
   <article class="card metric green">
-    <span>Total hoje</span>
+    <span>Pago hoje</span>
     <strong>{{ today_summary.valor|money }}</strong>
-    <small>valor comprado</small>
+    <small>saída de dinheiro</small>
   </article>
   <article class="card metric">
-    <span>Compras no mês</span>
-    <strong>{{ month_summary.compras }}</strong>
+    <span>Vendas hoje</span>
+    <strong>{{ today_sales_summary.vendas }}</strong>
+    <small>{{ today_sales_summary.kg|kg }} kg</small>
+  </article>
+  <article class="card metric green">
+    <span>Recebido hoje</span>
+    <strong>{{ today_sales_summary.valor|money }}</strong>
+    <small>entrada do caminhão</small>
+  </article>
+</section>
+
+<section class="grid cards-3 gap-top">
+  <article class="card metric">
+    <span>Comprado no mês</span>
+    <strong>{{ month_summary.valor|money }}</strong>
     <small>{{ month_summary.kg|kg }} kg</small>
   </article>
   <article class="card metric green">
-    <span>Total no mês</span>
-    <strong>{{ month_summary.valor|money }}</strong>
-    <small>gasto mensal</small>
+    <span>Recebido no mês</span>
+    <strong>{{ month_sales_summary.valor|money }}</strong>
+    <small>{{ month_sales_summary.kg|kg }} kg</small>
+  </article>
+  <article class="card metric">
+    <span>Resultado bruto</span>
+    <strong>{{ month_result|money }}</strong>
+    <small>recebido - comprado</small>
   </article>
 </section>
 
 <section class="grid two-cols gap-top">
   <article class="card">
     <div class="section-head">
-      <h2>Materiais do mês</h2>
+      <h2>Materiais comprados no mês</h2>
       <a href="{{ url_for('reports') }}">Ver relatório</a>
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Material</th><th>Kg</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor pago</th></tr></thead>
         <tbody>
           {% for row in material_totals %}
           <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
           {% else %}
-          <tr><td colspan="3" class="empty">Nenhum lançamento neste mês.</td></tr>
+          <tr><td colspan="3" class="empty">Nenhum material comprado neste mês.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </article>
+  <article class="card">
+    <div class="section-head">
+      <h2>Materiais vendidos no mês</h2>
+      <a href="{{ url_for('sales') }}">Ver recebimentos</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Material</th><th>Kg</th><th>Valor recebido</th></tr></thead>
+        <tbody>
+          {% for row in sales_material_totals %}
+          <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">Nenhuma venda lançada neste mês.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+
+<section class="grid two-cols gap-top">
   <article class="card">
     <div class="section-head">
       <h2>Últimas compras</h2>
@@ -56,7 +95,24 @@
           <em>{{ compra.total_kg|kg }} kg · {{ compra.total_amount|money }}</em>
         </a>
       {% else %}
-        <p class="empty">Ainda não tem compra lançada. Bora estrear o sistema.</p>
+        <p class="empty">Ainda não tem compra lançada.</p>
+      {% endfor %}
+    </div>
+  </article>
+  <article class="card">
+    <div class="section-head">
+      <h2>Últimas vendas do caminhão</h2>
+      <a href="{{ url_for('sales') }}">Ver todas</a>
+    </div>
+    <div class="timeline">
+      {% for venda in last_sales %}
+        <a class="timeline-item" href="{{ url_for('sale_receipt', sale_id=venda.id) }}">
+          <span>{{ venda.sale_date|br_date }}</span>
+          <strong>{{ venda.buyer_name_snapshot }}</strong>
+          <em>{{ venda.total_kg|kg }} kg · {{ venda.total_amount|money }}</em>
+        </a>
+      {% else %}
+        <p class="empty">Quando o caminhão buscar, lança aqui para registrar o dinheiro recebido.</p>
       {% endfor %}
     </div>
   </article>

@@ -15,7 +15,9 @@
     <nav>
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">🏠 Início</a>
       <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}">➕ Nova compra</a>
-      <a href="{{ url_for('purchases') }}" class="{{ 'active' if request.endpoint == 'purchases' else '' }}">♻️ Compras</a>
+      <a href="{{ url_for('purchases') }}" class="{{ 'active' if request.endpoint == 'purchases' or request.endpoint == 'receipt' else '' }}">♻️ Compras</a>
+      <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}">🚚 Venda caminhão</a>
+      <a href="{{ url_for('sales') }}" class="{{ 'active' if request.endpoint == 'sales' or request.endpoint == 'sale_receipt' else '' }}">💰 Recebimentos</a>
       <a href="{{ url_for('materials') }}" class="{{ 'active' if request.endpoint == 'materials' else '' }}">⚖️ Materiais</a>
       <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Fornecedores</a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}">📊 Relatórios</a>
@@ -32,7 +34,10 @@
         <p class="eyebrow">Sistema de reciclagem</p>
         <h1>{{ page_title or company_name }}</h1>
       </div>
-      <a class="btn primary" href="{{ url_for('new_purchase') }}">Nova compra</a>
+      <div class="topbar-actions">
+        <a class="btn" href="{{ url_for('new_purchase') }}">Nova compra</a>
+        <a class="btn primary" href="{{ url_for('new_sale') }}">Venda caminhão</a>
+      </div>
     </header>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
