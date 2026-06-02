@@ -60,3 +60,40 @@ function setupPurchaseForm() {
 }
 
 document.addEventListener('DOMContentLoaded', setupPurchaseForm);
+
+function setupMobileShell() {
+  const sidebar = document.getElementById('sidebar');
+  const openBtn = document.getElementById('openMenu');
+  const closeBtn = document.getElementById('closeMenu');
+  const overlay = document.getElementById('menuOverlay');
+  if (!sidebar || !openBtn || !closeBtn || !overlay) return;
+
+  function openMenu() {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMenu() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  openBtn.addEventListener('click', openMenu);
+  closeBtn.addEventListener('click', closeMenu);
+  overlay.addEventListener('click', closeMenu);
+
+  sidebar.querySelectorAll('nav a').forEach(link => link.addEventListener('click', closeMenu));
+}
+
+function setupPwaInstall() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', setupMobileShell);
+document.addEventListener('DOMContentLoaded', setupPwaInstall);

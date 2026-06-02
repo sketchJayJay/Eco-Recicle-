@@ -2,13 +2,32 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071009">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{ company_name }}">
   <title>{{ title or company_name }}</title>
   <link rel="icon" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <aside class="sidebar">
+  <header class="mobile-header no-print">
+    <button class="mobile-menu-btn" type="button" id="openMenu" aria-label="Abrir menu">☰</button>
+    <a class="mobile-brand" href="{{ url_for('dashboard') }}">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
+    </a>
+    <a class="mobile-sale-btn" href="{{ url_for('new_sale') }}" aria-label="Venda caminhão">🚚</a>
+  </header>
+
+  <div class="mobile-overlay no-print" id="menuOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top-mobile no-print">
+      <strong>Menu</strong>
+      <button class="close-menu" type="button" id="closeMenu" aria-label="Fechar menu">×</button>
+    </div>
     <a class="brand" href="{{ url_for('dashboard') }}">
       <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
     </a>
@@ -19,7 +38,7 @@
       <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}">🚚 Venda caminhão</a>
       <a href="{{ url_for('sales') }}" class="{{ 'active' if request.endpoint == 'sales' or request.endpoint == 'sale_receipt' else '' }}">💰 Recebimentos</a>
       <a href="{{ url_for('materials') }}" class="{{ 'active' if request.endpoint == 'materials' else '' }}">⚖️ Materiais</a>
-      <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Fornecedores</a>
+      <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Pessoas</a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}">📊 Relatórios</a>
     </nav>
     <div class="sidebar-footer">
@@ -52,6 +71,13 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <nav class="mobile-bottom-nav no-print">
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}"><span>🏠</span>Início</a>
+    <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}"><span>➕</span>Compra</a>
+    <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}"><span>🚚</span>Caminhão</a>
+    <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}"><span>📊</span>Relatório</a>
+  </nav>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
   {% block scripts %}{% endblock %}

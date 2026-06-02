@@ -8,7 +8,7 @@
       <input name="name" required>
     </label>
     <label>Telefone
-      <input name="phone">
+      <input name="phone" inputmode="tel">
     </label>
     <label>CPF/CNPJ
       <input name="doc">
@@ -28,7 +28,7 @@
 </section>
 
 <section class="card gap-top">
-  <div class="table-wrap">
+  <div class="table-wrap desktop-table">
     <table>
       <thead><tr><th>Nome</th><th>Telefone</th><th>CPF/CNPJ</th><th>Endereço</th><th></th></tr></thead>
       <tbody>
@@ -47,6 +47,28 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="mobile-edit-list mobile-only">
+    {% for row in rows %}
+      <form method="post" action="{{ url_for('edit_person', person_id=row.id) }}" class="mobile-edit-card">
+        <label>Nome
+          <input name="name" value="{{ row.name }}" required>
+        </label>
+        <label>Telefone
+          <input name="phone" inputmode="tel" value="{{ row.phone or '' }}">
+        </label>
+        <label>CPF/CNPJ
+          <input name="doc" value="{{ row.doc or '' }}">
+        </label>
+        <label>Endereço
+          <input name="address" value="{{ row.address or '' }}">
+        </label>
+        <button class="btn primary full" type="submit">Salvar pessoa</button>
+      </form>
+    {% else %}
+      <p class="empty">Nenhuma pessoa cadastrada.</p>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}

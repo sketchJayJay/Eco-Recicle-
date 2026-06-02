@@ -1,0 +1,25 @@
+{
+  "name": "Eco Recicle",
+  "short_name": "Eco Recicle",
+  "description": "Sistema de compras, vendas do caminhão e recibos da reciclagem.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071009",
+  "theme_color": "#071009",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

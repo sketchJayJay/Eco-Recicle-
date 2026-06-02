@@ -1,15 +1,18 @@
 # Sistema Eco Recicle
 
-Sistema web para reciclagem: compras por kg, vendas/retiradas do caminhão, materiais com preço automático, pessoas cadastradas, recibo térmico para cliente, comprovante de venda, relatórios e exportação CSV.
+Sistema web para reciclagem, feito para usar no celular: compras por kg, vendas/retiradas do caminhão, materiais com preço automático, pessoas cadastradas, recibo térmico para cliente, comprovante de venda, relatórios e exportação CSV.
 
 ## O que tem nessa versão
 
+- Layout responsivo para celular, com menu lateral e atalhos fixos na parte de baixo.
 - Compra de materiais dos clientes/fornecedores.
 - Recibo de compra em formato térmico 58mm, sem assinatura.
 - Venda/retirada do caminhão, para registrar quando o dono da reciclagem recebe.
+- Comprovante de venda/recebimento em formato térmico.
 - Preço de compra/kg e preço de venda/kg separados.
 - Relatório com total pago, total recebido e resultado bruto.
 - Exportação CSV de compras e vendas.
+- Manifest PWA para adicionar o sistema na tela inicial do celular.
 
 ## Login padrão
 
@@ -41,6 +44,15 @@ DATA_DIR=/app/data
 - Bateria: R$ 2,00/kg
 
 Esses valores entram como preço de compra e também como preço inicial de venda. Depois dá para ajustar o preço de venda em **Materiais**.
+
+## Como usar no celular
+
+1. Publique no Coolify.
+2. Abra o domínio do sistema no navegador do celular.
+3. No Android/Chrome, toque nos três pontinhos e escolha **Adicionar à tela inicial**.
+4. No iPhone/Safari, toque em compartilhar e escolha **Adicionar à Tela de Início**.
+
+A impressão do recibo térmico depende da impressora Bluetooth estar configurada no celular. Normalmente, no Android, a impressora aparece pelo serviço/app da própria impressora e o navegador manda imprimir por ali.
 
 ## Rodar localmente
 

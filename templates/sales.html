@@ -13,7 +13,8 @@
   <div class="summary-line">
     <strong>{{ totals.vendas }}</strong> vendas · <strong>{{ totals.kg|kg }} kg</strong> · <strong>{{ totals.valor|money }}</strong> recebido
   </div>
-  <div class="table-wrap">
+
+  <div class="table-wrap desktop-table">
     <table>
       <thead><tr><th>Data</th><th>Comprador/caminhão</th><th>Materiais</th><th>Kg</th><th>Recebido</th><th></th></tr></thead>
       <tbody>
@@ -36,6 +37,30 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="record-list mobile-only">
+    {% for row in rows %}
+      <article class="record-card">
+        <header>
+          <div>
+            <small>{{ row.sale_date|br_date }}</small>
+            <strong>{{ row.buyer_name_snapshot }}</strong>
+          </div>
+          <div class="amount">{{ row.total_amount|money }}</div>
+        </header>
+        <div class="materials">{{ row.materiais or 'Sem materiais informados' }}</div>
+        <div><span>{{ row.total_kg|kg }} kg vendidos</span></div>
+        <div class="record-actions">
+          <a class="mini" href="{{ url_for('sale_receipt', sale_id=row.id) }}">Comprovante</a>
+          <form method="post" action="{{ url_for('delete_sale', sale_id=row.id) }}" onsubmit="return confirm('Excluir esta venda?')">
+            <button class="mini danger" type="submit">Excluir</button>
+          </form>
+        </div>
+      </article>
+    {% else %}
+      <p class="empty">Nenhuma venda/retirada encontrada.</p>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}

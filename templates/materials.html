@@ -22,7 +22,7 @@
 </section>
 
 <section class="card gap-top">
-  <div class="table-wrap">
+  <div class="table-wrap desktop-table">
     <table>
       <thead><tr><th>Material</th><th>Compra/kg</th><th>Venda/kg</th><th>Ativo</th><th></th></tr></thead>
       <tbody>
@@ -39,6 +39,28 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="mobile-edit-list mobile-only">
+    {% for row in rows %}
+      <form method="post" action="{{ url_for('edit_material', material_id=row.id) }}" class="mobile-edit-card">
+        <label>Material
+          <input name="name" value="{{ row.name }}" required>
+        </label>
+        <label>Preço compra/kg
+          <input name="price_per_kg" inputmode="decimal" value="{{ '%.2f'|format(row.price_per_kg) }}" required>
+        </label>
+        <label>Preço venda/kg
+          <input name="sale_price_per_kg" inputmode="decimal" value="{{ '%.2f'|format(row.sale_price_per_kg or row.price_per_kg) }}" required>
+        </label>
+        <label class="inline-check">Material ativo
+          <input type="checkbox" name="active" {% if row.active %}checked{% endif %}>
+        </label>
+        <button class="btn primary full" type="submit">Salvar material</button>
+      </form>
+    {% else %}
+      <p class="empty">Nenhum material cadastrado.</p>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}
