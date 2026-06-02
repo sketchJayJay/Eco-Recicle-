@@ -37,6 +37,7 @@
       <a href="{{ url_for('purchases') }}" class="{{ 'active' if request.endpoint == 'purchases' or request.endpoint == 'receipt' else '' }}">♻️ Compras</a>
       <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}">🚚 Venda caminhão</a>
       <a href="{{ url_for('sales') }}" class="{{ 'active' if request.endpoint == 'sales' or request.endpoint == 'sale_receipt' else '' }}">💰 Recebimentos</a>
+      <a href="{{ url_for('stock') }}" class="{{ 'active' if request.endpoint == 'stock' else '' }}">📦 Estoque</a>
       <a href="{{ url_for('materials') }}" class="{{ 'active' if request.endpoint == 'materials' else '' }}">⚖️ Materiais</a>
       <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Pessoas</a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}">📊 Relatórios</a>
@@ -76,6 +77,7 @@
     <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}"><span>🏠</span>Início</a>
     <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}"><span>➕</span>Compra</a>
     <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}"><span>🚚</span>Caminhão</a>
+    <a href="{{ url_for('stock') }}" class="{{ 'active' if request.endpoint == 'stock' else '' }}"><span>📦</span>Estoque</a>
     <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}"><span>📊</span>Relatório</a>
   </nav>
 

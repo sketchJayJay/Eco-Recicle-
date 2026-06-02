@@ -1,18 +1,21 @@
-# Sistema Eco Recicle
+# Sistema Eco Recicle — versão celular melhorada
 
-Sistema web para reciclagem, feito para usar no celular: compras por kg, vendas/retiradas do caminhão, materiais com preço automático, pessoas cadastradas, recibo térmico para cliente, comprovante de venda, relatórios e exportação CSV.
+Sistema web para reciclagem, feito para usar no celular como um aplicativo: compras por kg, vendas/retiradas do caminhão, estoque automático, recibo térmico para cliente, comprovante de venda, relatórios e exportação CSV.
 
-## O que tem nessa versão
+## O que melhorou nessa versão
 
-- Layout responsivo para celular, com menu lateral e atalhos fixos na parte de baixo.
-- Compra de materiais dos clientes/fornecedores.
-- Recibo de compra em formato térmico 58mm, sem assinatura.
-- Venda/retirada do caminhão, para registrar quando o dono da reciclagem recebe.
-- Comprovante de venda/recebimento em formato térmico.
-- Preço de compra/kg e preço de venda/kg separados.
-- Relatório com total pago, total recebido e resultado bruto.
-- Exportação CSV de compras e vendas.
-- Manifest PWA para adicionar o sistema na tela inicial do celular.
+- Tela inicial com botões grandes para **Nova compra**, **Caminhão**, **Estoque** e **Relatório**.
+- Melhor uso no celular: campos maiores, botões fixos e total sempre visível durante o lançamento.
+- Nova tela de **Estoque atual**: calcula automaticamente o saldo por material.
+- O estoque é calculado assim: **kg comprado - kg vendido para o caminhão**.
+- Mostra **valor estimado de venda do estoque**, usando o preço de venda/kg.
+- Avisa se algum material ficar com estoque negativo.
+- Compra agora tem **forma de pagamento**: Pix, dinheiro, cartão, fiado ou outro.
+- Venda do caminhão agora tem **forma de recebimento**: Pix, dinheiro, cartão, transferência ou outro.
+- Recibo e comprovante ganharam botão de **compartilhar** pelo celular.
+- Recibo térmico continua em **58mm**, sem assinaturas, para impressora pequena Bluetooth.
+- Lista de compras e recebimentos em cards mais fáceis de usar no celular.
+- PWA: pode adicionar na tela inicial do celular.
 
 ## Login padrão
 
@@ -43,7 +46,16 @@ DATA_DIR=/app/data
 - Ferro: R$ 0,30/kg
 - Bateria: R$ 2,00/kg
 
-Esses valores entram como preço de compra e também como preço inicial de venda. Depois dá para ajustar o preço de venda em **Materiais**.
+Esses valores entram como preço de compra e também como preço inicial de venda. Depois dá para ajustar em **Materiais**.
+
+## Fluxo recomendado
+
+1. Quando o cliente levar material para vender, abra **Nova compra**.
+2. Escolha o fornecedor, material, peso e forma de pagamento.
+3. Imprima o recibo térmico para entregar ao cliente.
+4. Quando o caminhão buscar material, abra **Caminhão**.
+5. Lance o material vendido, peso, preço de venda/kg e forma de recebimento.
+6. Veja o saldo em **Estoque** e o resultado em **Relatórios**.
 
 ## Como usar no celular
 
@@ -52,7 +64,7 @@ Esses valores entram como preço de compra e também como preço inicial de vend
 3. No Android/Chrome, toque nos três pontinhos e escolha **Adicionar à tela inicial**.
 4. No iPhone/Safari, toque em compartilhar e escolha **Adicionar à Tela de Início**.
 
-A impressão do recibo térmico depende da impressora Bluetooth estar configurada no celular. Normalmente, no Android, a impressora aparece pelo serviço/app da própria impressora e o navegador manda imprimir por ali.
+A impressão do recibo térmico depende da impressora Bluetooth estar configurada no celular. Normalmente, no Android, a impressora aparece pelo app/serviço da própria impressora e o navegador manda imprimir por ali.
 
 ## Rodar localmente
 
@@ -80,6 +92,6 @@ docker compose up --build -d
 5. Configure as variáveis de ambiente acima.
 6. Adicione volume persistente em `/app/data`, para não perder o banco SQLite.
 
-## Observação
+## Backup
 
 O banco fica em `/app/data/eco_recicle.sqlite3`. Faça backup dessa pasta quando o sistema estiver em produção.

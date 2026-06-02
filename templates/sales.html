@@ -16,7 +16,7 @@
 
   <div class="table-wrap desktop-table">
     <table>
-      <thead><tr><th>Data</th><th>Comprador/caminhão</th><th>Materiais</th><th>Kg</th><th>Recebido</th><th></th></tr></thead>
+      <thead><tr><th>Data</th><th>Comprador/caminhão</th><th>Materiais</th><th>Kg</th><th>Recebido</th><th>Forma</th><th></th></tr></thead>
       <tbody>
       {% for row in rows %}
         <tr>
@@ -25,6 +25,7 @@
           <td>{{ row.materiais or '-' }}</td>
           <td>{{ row.total_kg|kg }}</td>
           <td>{{ row.total_amount|money }}</td>
+          <td>{{ row.payment_method or '-' }}</td>
           <td class="nowrap">
             <a class="mini" href="{{ url_for('sale_receipt', sale_id=row.id) }}">Comprovante</a>
             <form method="post" action="{{ url_for('delete_sale', sale_id=row.id) }}" class="inline" onsubmit="return confirm('Excluir esta venda?')">
@@ -33,7 +34,7 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="6" class="empty">Nenhuma venda/retirada encontrada.</td></tr>
+        <tr><td colspan="7" class="empty">Nenhuma venda/retirada encontrada.</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -50,7 +51,7 @@
           <div class="amount">{{ row.total_amount|money }}</div>
         </header>
         <div class="materials">{{ row.materiais or 'Sem materiais informados' }}</div>
-        <div><span>{{ row.total_kg|kg }} kg vendidos</span></div>
+        <div><span>{{ row.total_kg|kg }} kg vendidos · {{ row.payment_method or 'Sem forma informada' }}</span></div>
         <div class="record-actions">
           <a class="mini" href="{{ url_for('sale_receipt', sale_id=row.id) }}">Comprovante</a>
           <form method="post" action="{{ url_for('delete_sale', sale_id=row.id) }}" onsubmit="return confirm('Excluir esta venda?')">

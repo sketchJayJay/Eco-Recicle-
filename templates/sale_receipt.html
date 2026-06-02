@@ -3,6 +3,7 @@
 {% block content %}
 <div class="receipt-actions no-print">
   <button class="btn primary" onclick="window.print()">Imprimir comprovante</button>
+  <button class="btn ghost" type="button" id="shareReceipt">Compartilhar comprovante</button>
   <a class="btn" href="{{ url_for('new_sale') }}">Nova venda</a>
   <a class="btn ghost" href="{{ url_for('sales') }}">Voltar</a>
 </div>
@@ -20,6 +21,7 @@
   <div class="thermal-meta">
     <p><strong>Nº:</strong> {{ '%05d'|format(sale.id) }}</p>
     <p><strong>Data:</strong> {{ sale.sale_date|br_date }}</p>
+    <p><strong>Recebimento:</strong> {{ sale.payment_method or 'Não informado' }}</p>
     <p><strong>Comprador:</strong> {{ sale.buyer_name_snapshot }}</p>
     {% if person and person.phone %}<p><strong>Telefone:</strong> {{ person.phone }}</p>{% endif %}
     {% if person and person.doc %}<p><strong>Documento:</strong> {{ person.doc }}</p>{% endif %}

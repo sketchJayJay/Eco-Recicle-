@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% set page_title = 'Estoque atual' %}
+{% block content %}
+<section class="grid cards-3">
+  <article class="card metric green"><span>Kg em estoque</span><strong>{{ totals.kg|kg }} kg</strong><small>saldo positivo atual</small></article>
+  <article class="card metric"><span>Venda estimada</span><strong>{{ totals.value|money }}</strong><small>usando preço de venda/kg</small></article>
+  <article class="card metric"><span>Atenção</span><strong>{{ totals.negative }}</strong><small>materiais negativos</small></article>
+</section>
+
+<section class="card gap-top">
+  <div class="section-head">
+    <div>
+      <h2>Saldo por material</h2>
+      <p class="section-subtitle">O estoque é calculado automaticamente: compras menos vendas do caminhão.</p>
+    </div>
+    <a class="btn ghost" href="{{ url_for('materials') }}">Editar preços</a>
+  </div>
+
+  <div class="table-wrap desktop-table">
+    <table>
+      <thead><tr><th>Material</th><th>Comprado</th><th>Vendido</th><th>Estoque</th><th>Preço venda/kg</th><th>Venda estimada</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.bought_kg|kg }} kg</td>
+          <td>{{ row.sold_kg|kg }} kg</td>
+          <td><strong class="{{ 'text-danger' if row.stock_kg < 0 else 'text-green' }}">{{ row.stock_kg|kg }} kg</strong></td>
+          <td>{{ row.sale_price_per_kg|money }}</td>
+          <td>{{ row.stock_sale_value|money }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty">Nenhum estoque calculado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="stock-list mobile-only">
+    {% for row in rows %}
+      <article class="stock-card">
+        <header>
+          <div>
+            <strong>{{ row.name }}</strong>
+            <small>Venda/kg: {{ row.sale_price_per_kg|money }}</small>
+          </div>
+          <span class="stock-badge {{ 'danger' if row.stock_kg < 0 else '' }}">{{ row.stock_kg|kg }} kg</span>
+        </header>
+        <div class="stock-grid">
+          <span>Comprado <strong>{{ row.bought_kg|kg }} kg</strong></span>
+          <span>Vendido <strong>{{ row.sold_kg|kg }} kg</strong></span>
+          <span>Estimado <strong>{{ row.stock_sale_value|money }}</strong></span>
+        </div>
+      </article>
+    {% else %}
+      <p class="empty">Nenhum estoque calculado.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -3,6 +3,7 @@
 {% block content %}
 <div class="receipt-actions no-print">
   <button class="btn primary" onclick="window.print()">Imprimir recibo térmico</button>
+  <button class="btn ghost" type="button" id="shareReceipt">Compartilhar recibo</button>
   <a class="btn" href="{{ url_for('new_purchase') }}">Nova compra</a>
   <a class="btn ghost" href="{{ url_for('purchases') }}">Voltar</a>
 </div>
@@ -20,6 +21,7 @@
   <div class="thermal-meta">
     <p><strong>Recibo:</strong> {{ '%05d'|format(purchase.id) }}</p>
     <p><strong>Data:</strong> {{ purchase.purchase_date|br_date }}</p>
+    <p><strong>Pagamento:</strong> {{ purchase.payment_method or 'Não informado' }}</p>
     <p><strong>Fornecedor:</strong> {{ purchase.person_name_snapshot }}</p>
     {% if person and person.phone %}<p><strong>Telefone:</strong> {{ person.phone }}</p>{% endif %}
     {% if person and person.doc %}<p><strong>Documento:</strong> {{ person.doc }}</p>{% endif %}

@@ -127,6 +127,7 @@ def init_db() -> None:
             person_name_snapshot TEXT NOT NULL,
             purchase_date TEXT NOT NULL,
             notes TEXT,
+            payment_method TEXT DEFAULT 'Não informado',
             total_kg REAL NOT NULL DEFAULT 0,
             total_amount REAL NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
@@ -151,6 +152,7 @@ def init_db() -> None:
             buyer_name_snapshot TEXT NOT NULL,
             sale_date TEXT NOT NULL,
             notes TEXT,
+            payment_method TEXT DEFAULT 'Não informado',
             total_kg REAL NOT NULL DEFAULT 0,
             total_amount REAL NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
@@ -176,6 +178,14 @@ def init_db() -> None:
     if "sale_price_per_kg" not in material_columns:
         db.execute("ALTER TABLE materials ADD COLUMN sale_price_per_kg REAL NOT NULL DEFAULT 0")
         db.execute("UPDATE materials SET sale_price_per_kg = price_per_kg WHERE sale_price_per_kg = 0")
+
+    purchase_columns = {row["name"] for row in db.execute("PRAGMA table_info(purchases)").fetchall()}
+    if "payment_method" not in purchase_columns:
+        db.execute("ALTER TABLE purchases ADD COLUMN payment_method TEXT DEFAULT 'Não informado'")
+
+    sale_columns = {row["name"] for row in db.execute("PRAGMA table_info(sales)").fetchall()}
+    if "payment_method" not in sale_columns:
+        db.execute("ALTER TABLE sales ADD COLUMN payment_method TEXT DEFAULT 'Não informado'")
 
     # Usuário inicial configurável por variável ambiente.
     admin_user = os.environ.get("ADMIN_USER", "admin")
@@ -207,6 +217,49 @@ def login_required(func):
             return redirect(url_for("login"))
         return func(*args, **kwargs)
     return wrapper
+
+
+def get_stock_rows(db: sqlite3.Connection, limit: int | None = None) -> List[sqlite3.Row]:
+    limit_sql = "" if limit is None else f"LIMIT {int(limit)}"
+    return db.execute(
+        f"""
+        SELECT
+            m.id,
+            m.name,
+            m.price_per_kg,
+            COALESCE(NULLIF(m.sale_price_per_kg, 0), m.price_per_kg) AS sale_price_per_kg,
+            COALESCE(p.kg, 0) AS bought_kg,
+            COALESCE(p.valor, 0) AS paid_amount,
+            COALESCE(s.kg, 0) AS sold_kg,
+            COALESCE(s.valor, 0) AS received_amount,
+            ROUND(COALESCE(p.kg, 0) - COALESCE(s.kg, 0), 3) AS stock_kg,
+            CASE WHEN COALESCE(p.kg, 0) > 0 THEN COALESCE(p.valor, 0) / p.kg ELSE m.price_per_kg END AS avg_cost,
+            ROUND((COALESCE(p.kg, 0) - COALESCE(s.kg, 0)) * COALESCE(NULLIF(m.sale_price_per_kg, 0), m.price_per_kg), 2) AS stock_sale_value
+        FROM materials m
+        LEFT JOIN (
+            SELECT material_id, SUM(weight_kg) AS kg, SUM(subtotal) AS valor
+            FROM purchase_items
+            GROUP BY material_id
+        ) p ON p.material_id = m.id
+        LEFT JOIN (
+            SELECT material_id, SUM(weight_kg) AS kg, SUM(subtotal) AS valor
+            FROM sale_items
+            GROUP BY material_id
+        ) s ON s.material_id = m.id
+        WHERE m.active = 1 OR COALESCE(p.kg, 0) > 0 OR COALESCE(s.kg, 0) > 0
+        ORDER BY stock_kg DESC, m.name
+        {limit_sql}
+        """
+    ).fetchall()
+
+
+def stock_totals(rows: List[sqlite3.Row]) -> Dict[str, float]:
+    positive_rows = [row for row in rows if (row["stock_kg"] or 0) > 0]
+    return {
+        "kg": round(sum(float(row["stock_kg"] or 0) for row in positive_rows), 3),
+        "value": round(sum(float(row["stock_sale_value"] or 0) for row in positive_rows), 2),
+        "negative": sum(1 for row in rows if (row["stock_kg"] or 0) < 0),
+    }
 
 
 @app.context_processor
@@ -307,6 +360,9 @@ def dashboard():
         SELECT * FROM sales ORDER BY sale_date DESC, id DESC LIMIT 8
         """
     ).fetchall()
+    stock_rows = get_stock_rows(db, limit=8)
+    all_stock_rows = get_stock_rows(db)
+    stock_summary = stock_totals(all_stock_rows)
     return render_template(
         "dashboard.html",
         today_summary=today_summary,
@@ -318,6 +374,8 @@ def dashboard():
         sales_material_totals=sales_material_totals,
         last_purchases=last_purchases,
         last_sales=last_sales,
+        stock_rows=stock_rows,
+        stock_summary=stock_summary,
     )
 
 
@@ -371,6 +429,7 @@ def new_purchase():
         person_name = request.form.get("person_name", "").strip() or "Fornecedor sem nome"
         phone = request.form.get("phone", "").strip()
         notes = request.form.get("notes", "").strip()
+        payment_method = request.form.get("payment_method", "Pix").strip() or "Não informado"
 
         person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (person_name,)).fetchone()
         if person:
@@ -413,14 +472,15 @@ def new_purchase():
 
         cur = db.execute(
             """
-            INSERT INTO purchases (person_id, person_name_snapshot, purchase_date, notes, total_kg, total_amount, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO purchases (person_id, person_name_snapshot, purchase_date, notes, payment_method, total_kg, total_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 person_id,
                 person_name,
                 purchase_date,
                 notes,
+                payment_method,
                 round(total_kg, 3),
                 round(total_amount, 2),
                 datetime.now().isoformat(timespec="seconds"),
@@ -519,6 +579,7 @@ def new_sale():
         buyer_name = request.form.get("buyer_name", "").strip() or "Comprador sem nome"
         phone = request.form.get("phone", "").strip()
         notes = request.form.get("notes", "").strip()
+        payment_method = request.form.get("payment_method", "Pix").strip() or "Não informado"
 
         person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (buyer_name,)).fetchone()
         if person:
@@ -561,14 +622,15 @@ def new_sale():
 
         cur = db.execute(
             """
-            INSERT INTO sales (person_id, buyer_name_snapshot, sale_date, notes, total_kg, total_amount, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sales (person_id, buyer_name_snapshot, sale_date, notes, payment_method, total_kg, total_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 person_id,
                 buyer_name,
                 sale_date,
                 notes,
+                payment_method,
                 round(total_kg, 3),
                 round(total_amount, 2),
                 datetime.now().isoformat(timespec="seconds"),
@@ -615,6 +677,15 @@ def delete_sale(sale_id: int):
     db.commit()
     flash("Venda excluída.", "success")
     return redirect(url_for("sales"))
+
+
+@app.route("/estoque")
+@login_required
+def stock():
+    db = get_db()
+    rows = get_stock_rows(db)
+    totals = stock_totals(rows)
+    return render_template("stock.html", rows=rows, totals=totals)
 
 
 @app.route("/materiais", methods=["GET", "POST"])
@@ -780,6 +851,8 @@ def reports():
         """,
         (start, end),
     ).fetchall()
+    stock_rows = get_stock_rows(db)
+    stock_summary = stock_totals(stock_rows)
     return render_template(
         "reports.html",
         start=start,
@@ -791,6 +864,8 @@ def reports():
         by_sale_material=by_sale_material,
         by_person=by_person,
         by_buyer=by_buyer,
+        stock_rows=stock_rows,
+        stock_summary=stock_summary,
     )
 
 
@@ -800,17 +875,17 @@ def export_csv():
     db = get_db()
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
-    writer.writerow(["ID", "Data", "Fornecedor", "Material", "Kg", "Preco por kg", "Subtotal", "Observacao"])
+    writer.writerow(["ID", "Data", "Fornecedor", "Material", "Kg", "Preco por kg", "Subtotal", "Forma pagamento", "Observacao"])
     rows = db.execute(
         """
-        SELECT p.id, p.purchase_date, p.person_name_snapshot, pi.material_name_snapshot, pi.weight_kg, pi.price_per_kg, pi.subtotal, p.notes
+        SELECT p.id, p.purchase_date, p.person_name_snapshot, pi.material_name_snapshot, pi.weight_kg, pi.price_per_kg, pi.subtotal, p.payment_method, p.notes
         FROM purchases p
         JOIN purchase_items pi ON pi.purchase_id = p.id
         ORDER BY p.purchase_date DESC, p.id DESC
         """
     ).fetchall()
     for r in rows:
-        writer.writerow([r["id"], br_date(r["purchase_date"]), r["person_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["notes"] or ""])
+        writer.writerow([r["id"], br_date(r["purchase_date"]), r["person_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["payment_method"] or "", r["notes"] or ""])
     data = output.getvalue().encode("utf-8-sig")
     return Response(
         data,
@@ -825,17 +900,17 @@ def export_sales_csv():
     db = get_db()
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
-    writer.writerow(["ID", "Data", "Comprador", "Material", "Kg", "Preco por kg", "Subtotal", "Observacao"])
+    writer.writerow(["ID", "Data", "Comprador", "Material", "Kg", "Preco por kg", "Subtotal", "Forma recebimento", "Observacao"])
     rows = db.execute(
         """
-        SELECT s.id, s.sale_date, s.buyer_name_snapshot, si.material_name_snapshot, si.weight_kg, si.price_per_kg, si.subtotal, s.notes
+        SELECT s.id, s.sale_date, s.buyer_name_snapshot, si.material_name_snapshot, si.weight_kg, si.price_per_kg, si.subtotal, s.payment_method, s.notes
         FROM sales s
         JOIN sale_items si ON si.sale_id = s.id
         ORDER BY s.sale_date DESC, s.id DESC
         """
     ).fetchall()
     for r in rows:
-        writer.writerow([r["id"], br_date(r["sale_date"]), r["buyer_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["notes"] or ""])
+        writer.writerow([r["id"], br_date(r["sale_date"]), r["buyer_name_snapshot"], r["material_name_snapshot"], kg(r["weight_kg"]), money(r["price_per_kg"]), money(r["subtotal"]), r["payment_method"] or "", r["notes"] or ""])
     data = output.getvalue().encode("utf-8-sig")
     return Response(
         data,

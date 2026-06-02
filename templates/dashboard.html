@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
 {% set page_title = 'Painel geral' %}
 {% block content %}
-<section class="grid cards-4">
+<section class="quick-actions no-print">
+  <a class="action-tile active" href="{{ url_for('new_purchase') }}"><span>➕</span><strong>Nova compra</strong><small>Pagar ao cliente</small></a>
+  <a class="action-tile truck" href="{{ url_for('new_sale') }}"><span>🚚</span><strong>Caminhão</strong><small>Registrar entrada</small></a>
+  <a class="action-tile" href="{{ url_for('stock') }}"><span>📦</span><strong>Estoque</strong><small>Saldo por material</small></a>
+  <a class="action-tile" href="{{ url_for('reports') }}"><span>📊</span><strong>Relatório</strong><small>Lucro bruto</small></a>
+</section>
+
+<section class="grid cards-4 gap-top">
   <article class="card metric">
     <span>Compras hoje</span>
     <strong>{{ today_summary.compras }}</strong>
@@ -24,7 +31,7 @@
   </article>
 </section>
 
-<section class="grid cards-3 gap-top">
+<section class="grid cards-4 gap-top">
   <article class="card metric">
     <span>Comprado no mês</span>
     <strong>{{ month_summary.valor|money }}</strong>
@@ -39,6 +46,55 @@
     <span>Resultado bruto</span>
     <strong>{{ month_result|money }}</strong>
     <small>recebido - comprado</small>
+  </article>
+  <article class="card metric green">
+    <span>Estoque atual</span>
+    <strong>{{ stock_summary.kg|kg }} kg</strong>
+    <small>{{ stock_summary.value|money }} em venda estimada</small>
+  </article>
+</section>
+
+{% if stock_summary.negative %}
+<section class="alert warning gap-top">Tem {{ stock_summary.negative }} material(is) com estoque negativo. Confira se alguma venda do caminhão foi lançada sem compra anterior.</section>
+{% endif %}
+
+<section class="grid two-cols gap-top">
+  <article class="card">
+    <div class="section-head">
+      <h2>Estoque por material</h2>
+      <a href="{{ url_for('stock') }}">Ver estoque completo</a>
+    </div>
+    <div class="stock-list">
+      {% for row in stock_rows %}
+        <a class="stock-card mini-stock" href="{{ url_for('stock') }}">
+          <div>
+            <strong>{{ row.name }}</strong>
+            <small>Comprado {{ row.bought_kg|kg }} kg · vendido {{ row.sold_kg|kg }} kg</small>
+          </div>
+          <span class="stock-badge {{ 'danger' if row.stock_kg < 0 else '' }}">{{ row.stock_kg|kg }} kg</span>
+        </a>
+      {% else %}
+        <p class="empty">Ainda não tem material em estoque.</p>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="section-head">
+      <h2>Últimas vendas do caminhão</h2>
+      <a href="{{ url_for('sales') }}">Ver todas</a>
+    </div>
+    <div class="timeline">
+      {% for venda in last_sales %}
+        <a class="timeline-item" href="{{ url_for('sale_receipt', sale_id=venda.id) }}">
+          <span>{{ venda.sale_date|br_date }}</span>
+          <strong>{{ venda.buyer_name_snapshot }}</strong>
+          <em>{{ venda.total_kg|kg }} kg · {{ venda.total_amount|money }}</em>
+        </a>
+      {% else %}
+        <p class="empty">Quando o caminhão buscar, lança aqui para registrar o dinheiro recebido.</p>
+      {% endfor %}
+    </div>
   </article>
 </section>
 
@@ -63,27 +119,6 @@
   </article>
   <article class="card">
     <div class="section-head">
-      <h2>Materiais vendidos no mês</h2>
-      <a href="{{ url_for('sales') }}">Ver recebimentos</a>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Material</th><th>Kg</th><th>Valor recebido</th></tr></thead>
-        <tbody>
-          {% for row in sales_material_totals %}
-          <tr><td>{{ row.material }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>
-          {% else %}
-          <tr><td colspan="3" class="empty">Nenhuma venda lançada neste mês.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </article>
-</section>
-
-<section class="grid two-cols gap-top">
-  <article class="card">
-    <div class="section-head">
       <h2>Últimas compras</h2>
       <a href="{{ url_for('purchases') }}">Ver todas</a>
     </div>
@@ -96,23 +131,6 @@
         </a>
       {% else %}
         <p class="empty">Ainda não tem compra lançada.</p>
-      {% endfor %}
-    </div>
-  </article>
-  <article class="card">
-    <div class="section-head">
-      <h2>Últimas vendas do caminhão</h2>
-      <a href="{{ url_for('sales') }}">Ver todas</a>
-    </div>
-    <div class="timeline">
-      {% for venda in last_sales %}
-        <a class="timeline-item" href="{{ url_for('sale_receipt', sale_id=venda.id) }}">
-          <span>{{ venda.sale_date|br_date }}</span>
-          <strong>{{ venda.buyer_name_snapshot }}</strong>
-          <em>{{ venda.total_kg|kg }} kg · {{ venda.total_amount|money }}</em>
-        </a>
-      {% else %}
-        <p class="empty">Quando o caminhão buscar, lança aqui para registrar o dinheiro recebido.</p>
       {% endfor %}
     </div>
   </article>

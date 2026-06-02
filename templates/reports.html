@@ -15,6 +15,27 @@
   <article class="card metric"><span>Resultado bruto</span><strong>{{ result|money }}</strong><small>recebido - pago</small></article>
 </section>
 
+<section class="card gap-top">
+  <div class="section-head">
+    <div>
+      <h2>Estoque atual</h2>
+      <p class="section-subtitle">Saldo geral calculado com todas as compras e vendas, não apenas o período filtrado.</p>
+    </div>
+    <a class="btn ghost" href="{{ url_for('stock') }}">Abrir estoque</a>
+  </div>
+  <div class="summary-line">
+    <strong>{{ stock_summary.kg|kg }} kg</strong> em estoque · <strong>{{ stock_summary.value|money }}</strong> em venda estimada
+  </div>
+  <div class="stock-list compact-stock mobile-only">
+    {% for row in stock_rows[:6] %}
+      <article class="stock-card mini-stock">
+        <div><strong>{{ row.name }}</strong><small>comprado {{ row.bought_kg|kg }} kg · vendido {{ row.sold_kg|kg }} kg</small></div>
+        <span class="stock-badge {{ 'danger' if row.stock_kg < 0 else '' }}">{{ row.stock_kg|kg }} kg</span>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="grid two-cols gap-top">
   <article class="card">
     <h2>Compras por material</h2>
