@@ -295,10 +295,10 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   margin: auto;
   background: #fff;
   color: #111;
-  border: none;
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 20px 70px rgba(0,0,0,.35);
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 12px 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.10);
 }
 .paper p, .paper span, .paper small { color: #222; }
 .thermal-receipt {
@@ -306,35 +306,63 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   max-width: 100%;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 12px;
-  line-height: 1.25;
+  line-height: 1.3;
 }
-.thermal-logo { text-align: center; margin-bottom: 6px; }
+.thermal-logo {
+  text-align: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #111;
+}
 .thermal-logo img {
-  width: 46mm;
+  width: 48mm;
   max-width: 100%;
-  background: #020402;
-  border-radius: 6px;
-  padding: 4px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  display: inline-block;
 }
-.thermal-title { text-align: center; margin-bottom: 8px; }
+.thermal-title {
+  text-align: center;
+  margin-bottom: 8px;
+}
 .thermal-title h2 {
   color: #111;
   font-size: 15px;
   margin: 0;
-  letter-spacing: .04em;
+  letter-spacing: .05em;
 }
-.thermal-title p { margin: 3px 0 0; font-weight: 700; }
-.thermal-meta p { margin: 2px 0; word-break: break-word; }
+.thermal-title p {
+  margin: 3px 0 0;
+  font-weight: 700;
+  font-size: 11px;
+}
+.thermal-meta p {
+  margin: 2px 0;
+  word-break: break-word;
+}
 .thermal-line {
   border-top: 1px dashed #111;
   margin: 8px 0;
 }
-.thermal-items { display: grid; gap: 7px; }
+.thermal-items {
+  display: grid;
+  gap: 8px;
+}
+.thermal-item {
+  padding-bottom: 6px;
+  border-bottom: 1px dotted #cfcfcf;
+}
+.thermal-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
 .thermal-item-name {
   color: #111;
   font-weight: 700;
   text-transform: uppercase;
   word-break: break-word;
+  margin-bottom: 2px;
 }
 .thermal-item-calc {
   display: flex;
@@ -344,24 +372,47 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
 }
 .thermal-item-calc span { flex: 1; }
 .thermal-item-calc strong { color: #111; white-space: nowrap; }
-.thermal-totals { display: grid; gap: 4px; }
+.thermal-totals {
+  display: grid;
+  gap: 5px;
+}
 .thermal-totals div {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   align-items: baseline;
 }
-.thermal-totals span { font-weight: 700; text-transform: uppercase; }
-.thermal-totals strong { color: #111; font-size: 16px; text-align: right; }
+.thermal-totals span {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.thermal-totals strong {
+  color: #111;
+  font-size: 16px;
+  text-align: right;
+}
+.thermal-totals .grand-total {
+  border-top: 1px dashed #111;
+  padding-top: 6px;
+}
 .receipt-notes {
   margin: 0;
   padding: 0;
   border: 0;
   word-break: break-word;
 }
-.thermal-footer { text-align: center; }
-.thermal-footer p { margin: 0 0 3px; font-weight: 700; }
-.thermal-footer small { display: block; font-size: 10px; }
+.thermal-footer {
+  text-align: center;
+  padding-top: 2px;
+}
+.thermal-footer p {
+  margin: 0 0 3px;
+  font-weight: 700;
+}
+.thermal-footer small {
+  display: block;
+  font-size: 10px;
+}
 
 @media (max-width: 980px) {
   .sidebar {
@@ -403,13 +454,14 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
     padding: 2mm;
     box-shadow: none;
     border-radius: 0;
+    border: 0;
   }
   .thermal-receipt {
     font-size: 11px;
     line-height: 1.2;
     color: #000;
   }
-  .thermal-logo img { width: 42mm; }
+  .thermal-logo img { width: 46mm; background: transparent; padding: 0; }
   .thermal-title h2 { font-size: 14px; }
   .thermal-totals strong { font-size: 15px; }
   a { color: #000; text-decoration: none; }
