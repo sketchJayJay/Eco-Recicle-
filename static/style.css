@@ -294,6 +294,7 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   width: 58mm;
   min-width: 58mm;
   max-width: 58mm;
+  min-height: 100mm;
   margin: auto;
   background: #fff;
   color: #111;
@@ -317,7 +318,7 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   border-bottom: 1px dashed #111;
 }
 .thermal-logo img {
-  width: 46mm;
+  width: 34mm;
   max-width: 100%;
   background: transparent;
   border-radius: 0;
@@ -453,6 +454,7 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
     width: 58mm;
     min-width: 58mm;
     max-width: 58mm;
+    min-height: 100mm;
     margin: 0;
     padding: 2mm;
     box-shadow: none;
@@ -470,7 +472,7 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   .thermal-title h2 { font-size: 14px; }
   .thermal-totals strong { font-size: 15px; }
   a { color: #000; text-decoration: none; }
-  @page { size: 58mm auto; margin: 0; }
+  @page { size: 58mm 100mm; margin: 0; }
 }
 
 .topbar-actions {

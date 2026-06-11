@@ -183,7 +183,7 @@ async function buildReceiptCanvas(receipt) {
     try {
       logo = await loadImage(logoSrc);
       const ratio = logo.naturalHeight / logo.naturalWidth || 0.35;
-      const logoWidth = Math.min(contentWidth * 0.92, 520);
+      const logoWidth = Math.min(contentWidth * 0.68, 380);
       y += logoWidth * ratio + 12;
     } catch (_err) {
       logo = null;
@@ -250,7 +250,7 @@ async function buildReceiptCanvas(receipt) {
   }
 
   if (logo) {
-    const logoWidth = Math.min(contentWidth * 0.92, 520);
+    const logoWidth = Math.min(contentWidth * 0.68, 380);
     const ratio = logo.naturalHeight / logo.naturalWidth || 0.35;
     const logoHeight = logoWidth * ratio;
     const x = (canvas.width - logoWidth) / 2;
@@ -368,7 +368,8 @@ function bytesFromBase64(base64) {
 
 function createPdfFromCanvas(canvas) {
   const pdfWidth = 58 / 25.4 * 72;
-  const pdfHeight = canvas.height / canvas.width * pdfWidth;
+  const pdfHeight = 100 / 25.4 * 72;
+  const drawHeight = Math.min(pdfHeight, canvas.height / canvas.width * pdfWidth);
   const jpegBase64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
   const imageBytes = bytesFromBase64(jpegBase64);
   const content = `q\n${pdfWidth.toFixed(2)} 0 0 ${pdfHeight.toFixed(2)} 0 0 cm\n/Im0 Do\nQ\n`;
