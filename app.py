@@ -91,7 +91,7 @@ def _pdf_escape(value: Any) -> str:
     return text
 
 
-def _wrap_pdf_text(text: str, max_chars: int = 34) -> list[str]:
+def _wrap_pdf_text(text: str, max_chars: int = 28) -> list[str]:
     text = _pdf_clean(text)
     words = text.split()
     if not words:
@@ -140,8 +140,9 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
     Largura: 58mm, padrão comum de mini impressoras.
     Altura: automática conforme a quantidade de itens, para não cortar nem sobrepor textos.
     """
-    width = 58 / 25.4 * 72
-    margin = 9
+    # Tamanho do PDF térmico: 45mm de largura por no mínimo 100mm de altura.
+    width = 45 / 25.4 * 72
+    margin = 6
     usable_width = width - (margin * 2)
     ops: list[tuple[str, Any]] = []
 
@@ -150,7 +151,7 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
     logo_draw_height = 0.0
     if logo_info:
         logo_w_px, logo_h_px, _ = logo_info
-        logo_draw_width = min(usable_width * 0.82, 110)
+        logo_draw_width = min(usable_width * 0.88, 86)
         logo_draw_height = logo_draw_width * (logo_h_px / logo_w_px)
 
     cursor = 10.0
@@ -178,41 +179,41 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
         ops.append(("line", cursor))
         cursor += extra_after
 
-    add_text("ECO RECICLE", 10, True, align="center", leading=12)
-    add_text(title.upper(), 8, True, align="center", leading=11)
+    add_text("ECO RECICLE", 11, True, align="center", leading=13)
+    add_text(title.upper(), 9, True, align="center", leading=12)
     add_line(2, 8)
 
     for label, value in meta:
-        for part in _wrap_pdf_text(f"{label}: {value}", 32):
-            add_text(part, 7, False, leading=9)
+        for part in _wrap_pdf_text(f"{label}: {value}", 27):
+            add_text(part, 8, False, leading=10)
 
     add_line(3, 12)
 
     for name, calc, value in item_rows:
-        for part in _wrap_pdf_text(name.upper(), 25):
-            add_text(part, 8, True, leading=10)
-        add_text(calc, 6, False, leading=8)
-        add_text(value, 8, True, align="right", leading=10)
+        for part in _wrap_pdf_text(name.upper(), 21):
+            add_text(part, 9, True, leading=11)
+        add_text(calc, 7, False, leading=9)
+        add_text(value, 9, True, align="right", leading=11)
         cursor += 2
 
     add_line(3, 12)
 
     for label, value in totals:
         line = f"{label}: {value}"
-        for part in _wrap_pdf_text(line, 30):
-            add_text(part, 8, True, leading=10)
+        for part in _wrap_pdf_text(line, 25):
+            add_text(part, 9, True, leading=11)
 
     if notes:
         add_line(3, 10)
-        for part in _wrap_pdf_text(f"Obs.: {notes}", 32):
-            add_text(part, 6, False, leading=8)
+        for part in _wrap_pdf_text(f"Obs.: {notes}", 27):
+            add_text(part, 7, False, leading=9)
 
     add_line(4, 12)
-    add_text("Obrigado pela preferencia!", 7, True, align="center", leading=9)
-    add_text("Sistema Eco Recicle", 5, False, align="center", leading=7)
+    add_text("Obrigado pela preferencia!", 8, True, align="center", leading=10)
+    add_text("Sistema Eco Recicle", 6, False, align="center", leading=8)
 
-    min_height = 70 / 25.4 * 72
-    height = max(min_height, cursor + 10)
+    min_height = 100 / 25.4 * 72
+    height = max(min_height, cursor + 12)
 
     commands: list[str] = []
     for op in ops:
