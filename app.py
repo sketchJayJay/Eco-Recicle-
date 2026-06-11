@@ -2,9 +2,12 @@ import csv
 import io
 import os
 import sqlite3
+import unicodedata
 from datetime import datetime, date
 from functools import wraps
 from typing import Any, Dict, List
+
+from PIL import Image
 
 from flask import (
     Flask,
@@ -73,15 +76,24 @@ def br_date(value: str | None) -> str:
 
 
 
+
 # PDF térmico simples gerado no servidor para o iPhone reconhecer como arquivo PDF real.
-def _pdf_escape(value: Any) -> str:
+def _pdf_clean(value: Any) -> str:
+    """Deixa o texto seguro para PDF térmico/iPhone, evitando letras quebradas como ALUM�NIO."""
     text = str(value or "")
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return text
+
+
+def _pdf_escape(value: Any) -> str:
+    text = _pdf_clean(value)
     text = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
     return text
 
 
 def _wrap_pdf_text(text: str, max_chars: int = 34) -> list[str]:
-    words = str(text or "").split()
+    text = _pdf_clean(text)
+    words = text.split()
     if not words:
         return [""]
     lines: list[str] = []
@@ -96,65 +108,164 @@ def _wrap_pdf_text(text: str, max_chars: int = 34) -> list[str]:
     return lines
 
 
+_LOGO_PDF_CACHE: tuple[int, int, bytes] | None = None
+
+def _load_logo_pdf_image() -> tuple[int, int, bytes] | None:
+    """Carrega a logo em JPEG RGB para embutir no PDF térmico."""
+    global _LOGO_PDF_CACHE
+    if _LOGO_PDF_CACHE is not None:
+        return _LOGO_PDF_CACHE
+
+    logo_path = os.path.join(BASE_DIR, "static", "logo.png")
+    if not os.path.exists(logo_path):
+        return None
+
+    try:
+        with Image.open(logo_path) as img:
+            img = img.convert("RGBA")
+            bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            bg.alpha_composite(img)
+            rgb = bg.convert("RGB")
+            buf = io.BytesIO()
+            rgb.save(buf, format="JPEG", quality=92, optimize=True)
+            _LOGO_PDF_CACHE = (rgb.width, rgb.height, buf.getvalue())
+            return _LOGO_PDF_CACHE
+    except Exception:
+        return None
+
+
 def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: list[tuple[str, str, str]], totals: list[tuple[str, str]], notes: str | None, filename: str) -> Response:
-    # 50mm x 85mm em pontos PDF.
-    width = 50 / 25.4 * 72
-    height = 85 / 25.4 * 72
-    margin = 8
-    y = height - 12
-    commands: list[str] = []
+    """
+    PDF em formato de recibo térmico, compacto e com a logo da empresa no topo.
+    Largura: 58mm, padrão comum de mini impressoras.
+    Altura: automática conforme a quantidade de itens, para não cortar nem sobrepor textos.
+    """
+    width = 58 / 25.4 * 72
+    margin = 9
+    usable_width = width - (margin * 2)
+    ops: list[tuple[str, Any]] = []
 
-    def text_line(txt: str, size: int = 7, bold: bool = False, x: float | None = None, leading: float | None = None):
-        nonlocal y
-        font = "F2" if bold else "F1"
+    logo_info = _load_logo_pdf_image()
+    logo_draw_width = 0.0
+    logo_draw_height = 0.0
+    if logo_info:
+        logo_w_px, logo_h_px, _ = logo_info
+        logo_draw_width = min(usable_width * 0.82, 110)
+        logo_draw_height = logo_draw_width * (logo_h_px / logo_w_px)
+
+    cursor = 10.0
+    if logo_info:
+        logo_x = (width - logo_draw_width) / 2
+        ops.append(("image", cursor, logo_x, logo_draw_width, logo_draw_height))
+        cursor += logo_draw_height + 6
+
+    def add_text(txt: str, size: int = 7, bold: bool = False, x: float | None = None, align: str = "left", leading: float | None = None):
+        nonlocal cursor
+        txt = _pdf_clean(txt)
         if x is None:
-            x = margin
-        commands.append(f"BT /{font} {size} Tf {x:.2f} {y:.2f} Td ({_pdf_escape(txt)}) Tj ET")
-        y -= leading if leading is not None else size + 2
+            if align == "center":
+                x = max(margin, (width - (len(txt) * size * 0.46)) / 2)
+            elif align == "right":
+                x = max(margin, width - margin - (len(txt) * size * 0.48))
+            else:
+                x = margin
+        ops.append(("text", cursor, x, txt, size, bold))
+        cursor += leading if leading is not None else size + 2
 
-    def centered(txt: str, size: int = 8, bold: bool = True):
-        nonlocal y
-        avg = size * 0.28
-        x = max(margin, (width - len(txt) * avg) / 2)
-        text_line(txt, size=size, bold=bold, x=x)
+    def add_line(extra_before: float = 2, extra_after: float = 5):
+        nonlocal cursor
+        cursor += extra_before
+        ops.append(("line", cursor))
+        cursor += extra_after
 
-    def line():
-        nonlocal y
-        commands.append(f"{margin:.2f} {y:.2f} m {width - margin:.2f} {y:.2f} l S")
-        y -= 5
+    add_text("ECO RECICLE", 10, True, align="center", leading=12)
+    add_text(title.upper(), 8, True, align="center", leading=10)
+    add_line(1, 5)
 
-    centered("ECO RECICLE", 10, True)
-    centered(title.upper(), 8, True)
-    line()
     for label, value in meta:
-        for part in _wrap_pdf_text(f"{label}: {value}", 33):
-            text_line(part, 6, False)
-    line()
-    for name, calc, value in item_rows:
-        for part in _wrap_pdf_text(name.upper(), 31):
-            text_line(part, 6, True)
-        text_line(calc, 5, False)
-        text_line(value, 6, True, x=max(margin, width - margin - 42))
-        y -= 1
-    line()
-    for label, value in totals:
-        text_line(f"{label}: {value}", 7, True)
-    if notes:
-        line()
-        for part in _wrap_pdf_text(f"Obs.: {notes}", 33):
-            text_line(part, 5, False)
-    line()
-    centered("Obrigado pela preferencia!", 6, True)
+        for part in _wrap_pdf_text(f"{label}: {value}", 32):
+            add_text(part, 7, False, leading=9)
 
-    content = "\n".join(commands).encode("latin-1", "replace")
+    add_line(2, 5)
+
+    for name, calc, value in item_rows:
+        for part in _wrap_pdf_text(name.upper(), 25):
+            add_text(part, 8, True, leading=10)
+        add_text(calc, 6, False, leading=8)
+        add_text(value, 8, True, align="right", leading=10)
+        cursor += 2
+
+    add_line(1, 5)
+
+    for label, value in totals:
+        line = f"{label}: {value}"
+        for part in _wrap_pdf_text(line, 30):
+            add_text(part, 8, True, leading=10)
+
+    if notes:
+        add_line(1, 5)
+        for part in _wrap_pdf_text(f"Obs.: {notes}", 32):
+            add_text(part, 6, False, leading=8)
+
+    add_line(2, 5)
+    add_text("Obrigado pela preferencia!", 7, True, align="center", leading=9)
+    add_text("Sistema Eco Recicle", 5, False, align="center", leading=7)
+
+    min_height = 70 / 25.4 * 72
+    height = max(min_height, cursor + 10)
+
+    commands: list[str] = []
+    for op in ops:
+        if op[0] == "image":
+            _, y_from_top, x, img_w, img_h = op
+            y = height - y_from_top - img_h
+            commands.append(f"q\n{img_w:.2f} 0 0 {img_h:.2f} {x:.2f} {y:.2f} cm\n/Im0 Do\nQ")
+        elif op[0] == "text":
+            _, y_from_top, x, txt, size, bold = op
+            y = height - y_from_top
+            font = "F2" if bold else "F1"
+            commands.append(f"BT /{font} {size} Tf {x:.2f} {y:.2f} Td ({_pdf_escape(txt)}) Tj ET")
+        elif op[0] == "line":
+            _, y_from_top = op
+            y = height - y_from_top
+            commands.append(f"{margin:.2f} {y:.2f} m {width - margin:.2f} {y:.2f} l S")
+
+    content = "\n".join(commands).encode("ascii", "replace")
+
     objects = [
         b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
         b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        f"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width:.2f} {height:.2f}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n".encode(),
-        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
-        b"6 0 obj\n<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream\nendobj\n",
     ]
+
+    page_resources = "<< /Font << /F1 4 0 R /F2 5 0 R >>"
+    next_obj_num = 6
+    logo_obj_num = None
+    if logo_info:
+        page_resources += f" /XObject << /Im0 {next_obj_num} 0 R >>"
+        logo_obj_num = next_obj_num
+        next_obj_num += 1
+    page_resources += " >>"
+
+    objects.append(
+        f"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width:.2f} {height:.2f}] /Resources {page_resources} /Contents {next_obj_num} 0 R >>\nendobj\n".encode()
+    )
+    objects.append(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
+    objects.append(b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n")
+
+    if logo_info and logo_obj_num is not None:
+        img_w_px, img_h_px, img_bytes = logo_info
+        objects.append(
+            f"{logo_obj_num} 0 obj\n<< /Type /XObject /Subtype /Image /Width {img_w_px} /Height {img_h_px} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {len(img_bytes)} >>\nstream\n".encode()
+            + img_bytes
+            + b"\nendstream\nendobj\n"
+        )
+
+    objects.append(
+        f"{next_obj_num} 0 obj\n<< /Length {len(content)} >>\nstream\n".encode()
+        + content
+        + b"\nendstream\nendobj\n"
+    )
+
     pdf = bytearray(b"%PDF-1.4\n")
     offsets = [0]
     for obj in objects:
@@ -168,7 +279,7 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
 
     headers = {
         "Content-Type": "application/pdf",
-        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Disposition": f'inline; filename="{filename}"',
         "Cache-Control": "no-store, max-age=0",
         "X-Content-Type-Options": "nosniff",
     }
