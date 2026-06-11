@@ -183,7 +183,7 @@ async function buildReceiptCanvas(receipt) {
     try {
       logo = await loadImage(logoSrc);
       const ratio = logo.naturalHeight / logo.naturalWidth || 0.35;
-      const logoWidth = Math.min(contentWidth * 0.68, 380);
+      const logoWidth = Math.min(contentWidth * 0.50, 260);
       y += logoWidth * ratio + 12;
     } catch (_err) {
       logo = null;
@@ -194,34 +194,34 @@ async function buildReceiptCanvas(receipt) {
   if (subtitle) y += 20;
   y += 10;
 
-  ctxM.font = '20px Arial';
+  ctxM.font = '18px Arial';
   meta.forEach(line => {
     y += wrapReceiptText(ctxM, line, contentWidth).length * 20;
   });
   y += 12;
 
-  ctxM.font = 'bold 22px Arial';
+  ctxM.font = 'bold 20px Arial';
   items.forEach(item => {
     y += wrapReceiptText(ctxM, item.name.toUpperCase(), contentWidth).length * 24;
-    ctxM.font = '20px Arial';
-    y += Math.max(wrapReceiptText(ctxM, item.calcLeft, contentWidth - 170).length * 20, 20) + 14;
-    ctxM.font = 'bold 22px Arial';
+    ctxM.font = '18px Arial';
+    y += Math.max(wrapReceiptText(ctxM, item.calcLeft, contentWidth - 210).length * 18, 18) + 12;
+    ctxM.font = 'bold 20px Arial';
   });
 
   y += 10;
   totals.forEach(row => {
-    ctxM.font = /total/i.test(row.label) ? 'bold 22px Arial' : 'bold 20px Arial';
-    y += Math.max(wrapReceiptText(ctxM, row.label, contentWidth - 170).length * 20, 20) + 6;
+    ctxM.font = /total/i.test(row.label) ? 'bold 20px Arial' : 'bold 18px Arial';
+    y += Math.max(wrapReceiptText(ctxM, row.label, contentWidth - 210).length * 18, 18) + 6;
   });
 
   if (notes) {
-    ctxM.font = '20px Arial';
+    ctxM.font = '18px Arial';
     y += wrapReceiptText(ctxM, notes, contentWidth).length * 20 + 8;
   }
 
   if (footer.length) {
     footer.forEach((line, index) => {
-      ctxM.font = index === footer.length - 1 ? '16px Arial' : 'bold 18px Arial';
+      ctxM.font = index === footer.length - 1 ? '14px Arial' : 'bold 16px Arial';
       y += wrapReceiptText(ctxM, line, contentWidth).length * (index === footer.length - 1 ? 18 : 20);
     });
   }
@@ -250,50 +250,50 @@ async function buildReceiptCanvas(receipt) {
   }
 
   if (logo) {
-    const logoWidth = Math.min(contentWidth * 0.68, 380);
+    const logoWidth = Math.min(contentWidth * 0.50, 260);
     const ratio = logo.naturalHeight / logo.naturalWidth || 0.35;
     const logoHeight = logoWidth * ratio;
     const x = (canvas.width - logoWidth) / 2;
     ctx.drawImage(logo, x, drawY, logoWidth, logoHeight);
-    drawY += logoHeight + 12;
+    drawY += logoHeight + 8;
   }
 
   drawDashedLine();
-  ctx.font = 'bold 24px Arial';
+  ctx.font = 'bold 20px Arial';
   ctx.fillText(title, (canvas.width - ctx.measureText(title).width) / 2, drawY);
-  drawY += 28;
+  drawY += 24;
 
   if (subtitle) {
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 16px Arial';
     wrapReceiptText(ctx, subtitle, contentWidth).forEach(line => {
       ctx.fillText(line, (canvas.width - ctx.measureText(line).width) / 2, drawY);
-      drawY += 20;
+      drawY += 18;
     });
   }
 
   drawDashedLine();
-  ctx.font = '20px Arial';
+  ctx.font = '18px Arial';
   meta.forEach(line => {
     wrapReceiptText(ctx, line, contentWidth).forEach(part => {
       ctx.fillText(part, left, drawY);
-      drawY += 20;
+      drawY += 18;
     });
   });
 
   drawDashedLine();
   items.forEach(item => {
-    ctx.font = 'bold 22px Arial';
+    ctx.font = 'bold 20px Arial';
     wrapReceiptText(ctx, item.name.toUpperCase(), contentWidth).forEach(part => {
       ctx.fillText(part, left, drawY);
-      drawY += 24;
+      drawY += 22;
     });
-    ctx.font = '20px Arial';
-    const leftLines = wrapReceiptText(ctx, item.calcLeft, contentWidth - 170);
+    ctx.font = '18px Arial';
+    const leftLines = wrapReceiptText(ctx, item.calcLeft, contentWidth - 210);
     const blockHeight = Math.max(leftLines.length * 20, 20);
     leftLines.forEach((part, index) => ctx.fillText(part, left, drawY + index * 20));
     if (item.calcRight) {
       ctx.font = 'bold 20px Arial';
-      ctx.fillText(item.calcRight, right - ctx.measureText(item.calcRight).width, drawY);
+      ctx.fillText(item.calcRight, right - 12 - ctx.measureText(item.calcRight).width, drawY);
     }
     drawY += blockHeight + 6;
     ctx.save();
@@ -310,28 +310,28 @@ async function buildReceiptCanvas(receipt) {
   drawDashedLine();
   totals.forEach(row => {
     const isGrand = /total/i.test(row.label);
-    ctx.font = isGrand ? 'bold 22px Arial' : 'bold 20px Arial';
-    const labelLines = wrapReceiptText(ctx, row.label, contentWidth - 170);
+    ctx.font = isGrand ? 'bold 20px Arial' : 'bold 18px Arial';
+    const labelLines = wrapReceiptText(ctx, row.label, contentWidth - 210);
     const rowHeight = Math.max(labelLines.length * 20, 20);
     labelLines.forEach((part, index) => ctx.fillText(part, left, drawY + index * 20));
-    ctx.font = isGrand ? 'bold 24px Arial' : 'bold 20px Arial';
-    ctx.fillText(row.value, right - ctx.measureText(row.value).width, drawY);
+    ctx.font = isGrand ? 'bold 22px Arial' : 'bold 18px Arial';
+    ctx.fillText(row.value, right - 12 - ctx.measureText(row.value).width, drawY);
     drawY += rowHeight + 6;
   });
 
   if (notes) {
     drawDashedLine();
-    ctx.font = '20px Arial';
+    ctx.font = '18px Arial';
     wrapReceiptText(ctx, notes, contentWidth).forEach(part => {
       ctx.fillText(part, left, drawY);
-      drawY += 20;
+      drawY += 18;
     });
   }
 
   if (footer.length) {
     drawDashedLine();
     footer.forEach((line, index) => {
-      ctx.font = index === footer.length - 1 ? '16px Arial' : 'bold 18px Arial';
+      ctx.font = index === footer.length - 1 ? '14px Arial' : 'bold 16px Arial';
       wrapReceiptText(ctx, line, contentWidth).forEach(part => {
         ctx.fillText(part, (canvas.width - ctx.measureText(part).width) / 2, drawY);
         drawY += index === footer.length - 1 ? 18 : 20;
