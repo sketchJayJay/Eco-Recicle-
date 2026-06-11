@@ -152,8 +152,8 @@ function wrapReceiptText(ctx, text, maxWidth) {
 }
 
 async function buildReceiptCanvas(receipt) {
-  const canvasWidth = 696;
-  const padding = 24;
+  const canvasWidth = 620;
+  const padding = 22;
   const contentWidth = canvasWidth - padding * 2;
   const left = padding;
   const right = canvasWidth - padding;
@@ -367,8 +367,8 @@ function bytesFromBase64(base64) {
 }
 
 function createPdfFromCanvas(canvas) {
-  const pdfWidth = 58 / 25.4 * 72;
-  const pdfHeight = 100 / 25.4 * 72;
+  const pdfWidth = 50 / 25.4 * 72;
+  const pdfHeight = 85 / 25.4 * 72;
   const drawHeight = Math.min(pdfHeight, canvas.height / canvas.width * pdfWidth);
   const jpegBase64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
   const imageBytes = bytesFromBase64(jpegBase64);
