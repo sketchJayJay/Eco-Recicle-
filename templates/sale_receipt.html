@@ -3,8 +3,8 @@
 {% block content %}
 <div class="receipt-actions no-print">
   <button class="btn primary" onclick="window.print()">Imprimir comprovante</button>
-  <button class="btn ghost" type="button" id="shareReceipt" data-pdf-url="{{ url_for('sale_receipt_pdf', sale_id=sale.id) }}" data-file-prefix="comprovante-eco-recicle">Compartilhar PDF para OpenLabel</button>
-  <a class="btn ghost" href="{{ url_for('sale_receipt_pdf', sale_id=sale.id) }}" target="_blank">Abrir PDF direto</a>
+  <a class="btn ghost" href="{{ url_for('sale_receipt_pdf', sale_id=sale.id) }}" target="_blank" rel="noopener">Compartilhar PDF para OpenLabel</a>
+  <a class="btn ghost" href="{{ url_for('sale_receipt_pdf', sale_id=sale.id) }}" target="_blank" rel="noopener">Abrir PDF direto</a>
   <a class="btn" href="{{ url_for('new_sale') }}">Nova venda</a>
   <a class="btn ghost" href="{{ url_for('sales') }}">Voltar</a>
 </div>
