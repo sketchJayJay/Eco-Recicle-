@@ -151,7 +151,7 @@ function wrapReceiptText(ctx, text, maxWidth) {
   return lines.length ? lines : [''];
 }
 
-async function buildReceiptImage(receipt) {
+async function buildReceiptCanvas(receipt) {
   const canvasWidth = 696;
   const padding = 24;
   const contentWidth = canvasWidth - padding * 2;
@@ -339,6 +339,76 @@ async function buildReceiptImage(receipt) {
     });
   }
 
+  return canvas;
+}
+
+function asciiBytes(text) {
+  return new TextEncoder().encode(text);
+}
+
+function concatBytes(chunks) {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(chunk => {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  });
+  return out;
+}
+
+function bytesFromBase64(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function createPdfFromCanvas(canvas) {
+  const pdfWidth = 58 / 25.4 * 72;
+  const pdfHeight = canvas.height / canvas.width * pdfWidth;
+  const jpegBase64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+  const imageBytes = bytesFromBase64(jpegBase64);
+  const content = `q\n${pdfWidth.toFixed(2)} 0 0 ${pdfHeight.toFixed(2)} 0 0 cm\n/Im0 Do\nQ\n`;
+  const objects = [
+    asciiBytes('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'),
+    asciiBytes('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'),
+    asciiBytes(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfWidth.toFixed(2)} ${pdfHeight.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`),
+    concatBytes([
+      asciiBytes(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`),
+      imageBytes,
+      asciiBytes('\nendstream\nendobj\n')
+    ]),
+    asciiBytes(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`)
+  ];
+
+  const chunks = [asciiBytes('%PDF-1.4\n')];
+  const offsets = [0];
+  let length = chunks[0].length;
+  objects.forEach(obj => {
+    offsets.push(length);
+    chunks.push(obj);
+    length += obj.length;
+  });
+  const xrefOffset = length;
+  let xref = 'xref\n0 6\n0000000000 65535 f \n';
+  for (let i = 1; i <= 5; i += 1) {
+    xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  xref += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  chunks.push(asciiBytes(xref));
+  return new Blob([concatBytes(chunks)], { type: 'application/pdf' });
+}
+
+async function buildReceiptPdf(receipt) {
+  const canvas = await buildReceiptCanvas(receipt);
+  return createPdfFromCanvas(canvas);
+}
+
+async function buildReceiptImage(receipt) {
+  const canvas = await buildReceiptCanvas(receipt);
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'));
 }
 
@@ -350,12 +420,12 @@ function setupReceiptShare() {
   btn.addEventListener('click', async () => {
     const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Gerando imagem...';
+    btn.textContent = 'Gerando PDF...';
     try {
-      const blob = await buildReceiptImage(receipt);
-      if (!blob) throw new Error('Erro ao gerar imagem');
-      const fileName = `recibo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
-      const file = new File([blob], fileName, { type: 'image/png' });
+      const blob = await buildReceiptPdf(receipt);
+      if (!blob) throw new Error('Erro ao gerar PDF');
+      const fileName = `recibo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
+      const file = new File([blob], fileName, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ title: document.title || 'Recibo', files: [file] });
