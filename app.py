@@ -71,6 +71,110 @@ def br_date(value: str | None) -> str:
         return value
 
 
+
+
+# PDF térmico simples gerado no servidor para o iPhone reconhecer como arquivo PDF real.
+def _pdf_escape(value: Any) -> str:
+    text = str(value or "")
+    text = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return text
+
+
+def _wrap_pdf_text(text: str, max_chars: int = 34) -> list[str]:
+    words = str(text or "").split()
+    if not words:
+        return [""]
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        if len(current) + 1 + len(word) <= max_chars:
+            current += " " + word
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
+def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: list[tuple[str, str, str]], totals: list[tuple[str, str]], notes: str | None, filename: str) -> Response:
+    # 50mm x 85mm em pontos PDF.
+    width = 50 / 25.4 * 72
+    height = 85 / 25.4 * 72
+    margin = 8
+    y = height - 12
+    commands: list[str] = []
+
+    def text_line(txt: str, size: int = 7, bold: bool = False, x: float | None = None, leading: float | None = None):
+        nonlocal y
+        font = "F2" if bold else "F1"
+        if x is None:
+            x = margin
+        commands.append(f"BT /{font} {size} Tf {x:.2f} {y:.2f} Td ({_pdf_escape(txt)}) Tj ET")
+        y -= leading if leading is not None else size + 2
+
+    def centered(txt: str, size: int = 8, bold: bool = True):
+        nonlocal y
+        avg = size * 0.28
+        x = max(margin, (width - len(txt) * avg) / 2)
+        text_line(txt, size=size, bold=bold, x=x)
+
+    def line():
+        nonlocal y
+        commands.append(f"{margin:.2f} {y:.2f} m {width - margin:.2f} {y:.2f} l S")
+        y -= 5
+
+    centered("ECO RECICLE", 10, True)
+    centered(title.upper(), 8, True)
+    line()
+    for label, value in meta:
+        for part in _wrap_pdf_text(f"{label}: {value}", 33):
+            text_line(part, 6, False)
+    line()
+    for name, calc, value in item_rows:
+        for part in _wrap_pdf_text(name.upper(), 31):
+            text_line(part, 6, True)
+        text_line(calc, 5, False)
+        text_line(value, 6, True, x=max(margin, width - margin - 42))
+        y -= 1
+    line()
+    for label, value in totals:
+        text_line(f"{label}: {value}", 7, True)
+    if notes:
+        line()
+        for part in _wrap_pdf_text(f"Obs.: {notes}", 33):
+            text_line(part, 5, False)
+    line()
+    centered("Obrigado pela preferencia!", 6, True)
+
+    content = "\n".join(commands).encode("latin-1", "replace")
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        f"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width:.2f} {height:.2f}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n".encode(),
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
+        b"6 0 obj\n<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream\nendobj\n",
+    ]
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(pdf))
+        pdf.extend(obj)
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects)+1}\n0000000000 65535 f \n".encode())
+    for off in offsets[1:]:
+        pdf.extend(f"{off:010d} 00000 n \n".encode())
+    pdf.extend(f"trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF".encode())
+
+    headers = {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": "no-store, max-age=0",
+        "X-Content-Type-Options": "nosniff",
+    }
+    return Response(bytes(pdf), headers=headers)
+
+
 app.jinja_env.filters["money"] = money
 app.jinja_env.filters["kg"] = kg
 app.jinja_env.filters["br_datetime"] = br_datetime
@@ -518,6 +622,34 @@ def receipt(purchase_id: int):
     return render_template("receipt.html", purchase=purchase, person=person, items=items)
 
 
+@app.route("/compras/<int:purchase_id>/recibo/pdf")
+@login_required
+def receipt_pdf(purchase_id: int):
+    db = get_db()
+    purchase = db.execute("SELECT * FROM purchases WHERE id = ?", (purchase_id,)).fetchone()
+    if not purchase:
+        flash("Compra não encontrada.", "error")
+        return redirect(url_for("purchases"))
+    person = None
+    if purchase["person_id"]:
+        person = db.execute("SELECT * FROM people WHERE id = ?", (purchase["person_id"],)).fetchone()
+    items = db.execute("SELECT * FROM purchase_items WHERE purchase_id = ? ORDER BY id", (purchase_id,)).fetchall()
+    meta = [
+        ("Recibo", f"{purchase['id']:05d}"),
+        ("Data", br_date(purchase["purchase_date"])),
+        ("Pagamento", purchase["payment_method"] or "Nao informado"),
+        ("Fornecedor", purchase["person_name_snapshot"]),
+    ]
+    if person and person["phone"]:
+        meta.append(("Telefone", person["phone"]))
+    if person and person["doc"]:
+        meta.append(("Documento", person["doc"]))
+    item_rows = [(item["material_name_snapshot"], f"{kg(item['weight_kg'])} kg x {money(item['price_per_kg'])}/kg", money(item["subtotal"])) for item in items]
+    totals = [("Peso total", f"{kg(purchase['total_kg'])} kg"), ("Total pago", money(purchase["total_amount"]))]
+    filename = f"recibo-eco-recicle-{purchase_id:05d}.pdf"
+    return _thermal_pdf_response("Recibo de compra", meta, item_rows, totals, purchase["notes"], filename)
+
+
 @app.post("/compras/<int:purchase_id>/excluir")
 @login_required
 def delete_purchase(purchase_id: int):
@@ -666,6 +798,32 @@ def sale_receipt(sale_id: int):
         person = db.execute("SELECT * FROM people WHERE id = ?", (sale["person_id"],)).fetchone()
     items = db.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", (sale_id,)).fetchall()
     return render_template("sale_receipt.html", sale=sale, person=person, items=items)
+
+
+@app.route("/vendas/<int:sale_id>/recibo/pdf")
+@login_required
+def sale_receipt_pdf(sale_id: int):
+    db = get_db()
+    sale = db.execute("SELECT * FROM sales WHERE id = ?", (sale_id,)).fetchone()
+    if not sale:
+        flash("Venda não encontrada.", "error")
+        return redirect(url_for("sales"))
+    person = None
+    if sale["person_id"]:
+        person = db.execute("SELECT * FROM people WHERE id = ?", (sale["person_id"],)).fetchone()
+    items = db.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", (sale_id,)).fetchall()
+    meta = [
+        ("Numero", f"{sale['id']:05d}"),
+        ("Data", br_date(sale["sale_date"])),
+        ("Recebimento", sale["payment_method"] or "Nao informado"),
+        ("Comprador", sale["buyer_name_snapshot"]),
+    ]
+    if person and person["phone"]:
+        meta.append(("Telefone", person["phone"]))
+    item_rows = [(item["material_name_snapshot"], f"{kg(item['weight_kg'])} kg x {money(item['price_per_kg'])}/kg", money(item["subtotal"])) for item in items]
+    totals = [("Peso total", f"{kg(sale['total_kg'])} kg"), ("Total recebido", money(sale["total_amount"]))]
+    filename = f"comprovante-eco-recicle-{sale_id:05d}.pdf"
+    return _thermal_pdf_response("Comprovante de venda", meta, item_rows, totals, sale["notes"], filename)
 
 
 @app.post("/vendas/<int:sale_id>/excluir")

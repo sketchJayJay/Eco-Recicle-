@@ -423,22 +423,47 @@ function setupReceiptShare() {
     btn.disabled = true;
     btn.textContent = 'Gerando PDF...';
     try {
-      const blob = await buildReceiptPdf(receipt);
+      let blob = null;
+      const pdfUrl = btn.dataset.pdfUrl;
+      const prefix = btn.dataset.filePrefix || 'recibo-eco-recicle';
+      const fileName = `${prefix}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
+
+      // No iPhone, o OpenLabel aparece melhor quando o PDF vem como arquivo real do servidor.
+      if (pdfUrl) {
+        const response = await fetch(pdfUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/pdf' },
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        if (response.ok) {
+          blob = await response.blob();
+        }
+      }
+
+      // Reserva: se a rota do servidor falhar, gera o PDF no navegador.
+      if (!blob || blob.size === 0) {
+        blob = await buildReceiptPdf(receipt);
+      }
       if (!blob) throw new Error('Erro ao gerar PDF');
-      const fileName = `recibo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
+
       const file = new File([blob], fileName, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ title: document.title || 'Recibo', files: [file] });
+        await navigator.share({
+          title: 'Recibo Eco Recicle',
+          text: 'Recibo em PDF',
+          files: [file]
+        });
       } else {
-        const url = URL.createObjectURL(blob);
+        const url = pdfUrl || URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        if (!pdfUrl) setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (_err) {
       // o usuário pode cancelar ou o navegador pode bloquear o compartilhamento
