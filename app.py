@@ -179,14 +179,14 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
         cursor += extra_after
 
     add_text("ECO RECICLE", 10, True, align="center", leading=12)
-    add_text(title.upper(), 8, True, align="center", leading=10)
-    add_line(1, 5)
+    add_text(title.upper(), 8, True, align="center", leading=11)
+    add_line(2, 8)
 
     for label, value in meta:
         for part in _wrap_pdf_text(f"{label}: {value}", 32):
             add_text(part, 7, False, leading=9)
 
-    add_line(2, 5)
+    add_line(3, 12)
 
     for name, calc, value in item_rows:
         for part in _wrap_pdf_text(name.upper(), 25):
@@ -195,7 +195,7 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
         add_text(value, 8, True, align="right", leading=10)
         cursor += 2
 
-    add_line(1, 5)
+    add_line(3, 12)
 
     for label, value in totals:
         line = f"{label}: {value}"
@@ -203,11 +203,11 @@ def _thermal_pdf_response(title: str, meta: list[tuple[str, str]], item_rows: li
             add_text(part, 8, True, leading=10)
 
     if notes:
-        add_line(1, 5)
+        add_line(3, 10)
         for part in _wrap_pdf_text(f"Obs.: {notes}", 32):
             add_text(part, 6, False, leading=8)
 
-    add_line(2, 5)
+    add_line(4, 12)
     add_text("Obrigado pela preferencia!", 7, True, align="center", leading=9)
     add_text("Sistema Eco Recicle", 5, False, align="center", leading=7)
 
