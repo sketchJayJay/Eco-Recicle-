@@ -3,10 +3,11 @@
 {% block content %}
 <div class="receipt-actions no-print">
   <button class="btn primary" onclick="window.print()">Imprimir recibo térmico</button>
-  <button class="btn ghost" type="button" id="shareReceipt">Compartilhar recibo</button>
+  <button class="btn primary" type="button" id="shareReceipt">Compartilhar PDF no One Label</button>
   <a class="btn" href="{{ url_for('new_purchase') }}">Nova compra</a>
   <a class="btn ghost" href="{{ url_for('purchases') }}">Voltar</a>
 </div>
+<p class="share-hint no-print">Use “Compartilhar PDF no One Label” para abrir o recibo direto no app da impressora.</p>
 
 <section class="receipt thermal-receipt paper">
   <div class="thermal-logo">

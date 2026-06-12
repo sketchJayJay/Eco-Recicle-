@@ -1233,3 +1233,6 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--green); 
   .fast-total div { min-width: 100%; }
   .topbar-actions { display: none; }
 }
+
+.share-hint { text-align: center; margin: -8px auto 14px; max-width: 340px; font-size: 13px; color: var(--muted); }
+.receipt-actions .btn.primary { font-weight: 900; }

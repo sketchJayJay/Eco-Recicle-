@@ -446,7 +446,7 @@ function setupReceiptShare() {
       // o usuário pode cancelar ou o navegador pode bloquear o compartilhamento
     } finally {
       btn.disabled = false;
-      btn.textContent = original || 'Compartilhar recibo';
+      btn.textContent = original || 'Compartilhar PDF no One Label';
     }
   });
 }
