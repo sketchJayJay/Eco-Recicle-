@@ -1,56 +1,81 @@
 {% extends 'base.html' %}
-{% set page_title = 'Compra rápida' %}
+{% set page_title = 'Nova compra' %}
 {% block content %}
-<form method="post" class="card purchase-form smart-form fast-purchase" id="purchaseForm">
+<section class="quick-actions page-actions no-print">
+  <a class="action-tile active" href="{{ url_for('new_purchase') }}"><span>➕</span><strong>Comprar</strong><small>Pagar ao cliente</small></a>
+  <a class="action-tile" href="{{ url_for('new_sale') }}"><span>🚚</span><strong>Caminhão</strong><small>Registrar recebimento</small></a>
+  <a class="action-tile" href="{{ url_for('stock') }}"><span>📦</span><strong>Estoque</strong><small>Ver saldo por kg</small></a>
+</section>
+
+<form method="post" class="card purchase-form smart-form" id="purchaseForm">
   <div class="form-intro">
     <div>
-      <h2>Compra rápida</h2>
-      <p>Escolha o material, coloque o KG da balança e o sistema soma na hora. O nome é opcional.</p>
+      <h2>Compra de material</h2>
+      <p>Use no balcão pelo celular: escolhe o material, coloca o peso e o valor sai na hora.</p>
     </div>
-    <div class="form-badge">PDF 50x85</div>
+    <div class="form-badge">Recibo 58mm</div>
   </div>
 
-  <input type="hidden" name="purchase_date" value="{{ today_iso }}">
-  <input type="hidden" name="payment_method" value="Dinheiro">
-  <input type="hidden" name="notes" value="">
-
-  <div class="fast-name-box">
-    <label>Nome do cliente <small>(opcional)</small>
-      <input name="person_name" placeholder="Pode deixar vazio" autocomplete="off">
+  <div class="grid two-cols">
+    <label>Data da compra
+      <input type="date" name="purchase_date" value="{{ today_iso }}" required>
+    </label>
+    <label>Nome opcional / cliente
+      <input name="person_name" list="peopleList" placeholder="Digite ou selecione" autocomplete="off">
+      <datalist id="peopleList">
+        {% for p in people %}<option value="{{ p.name }}">{{ p.phone or '' }}</option>{% endfor %}
+      </datalist>
+    </label>
+    <label>Telefone
+      <input name="phone" inputmode="tel" placeholder="(00) 00000-0000">
+    </label>
+    <label>Forma de pagamento
+      <select name="payment_method">
+        <option>Pix</option>
+        <option>Dinheiro</option>
+        <option>Cartão</option>
+        <option>Fiado</option>
+        <option>Outro</option>
+      </select>
+    </label>
+    <label class="wide-field">Observação
+      <input name="notes" placeholder="Ex.: pagamento feito no Pix, cliente trouxe em bags, etc.">
     </label>
   </div>
 
-  <div class="section-head gap-top compact-head">
+  <div class="section-head gap-top">
     <div>
-      <h2>Material e peso</h2>
-      <p class="section-subtitle">Após lançar o KG, toque em salvar para imprimir o recibo.</p>
+      <h2>Materiais comprados</h2>
+      <p class="section-subtitle">Toque em “Adicionar” para lançar quantos materiais precisar.</p>
     </div>
-    <button type="button" class="btn ghost" id="addItem">+ Material</button>
+    <button type="button" class="btn ghost" id="addItem">+ Adicionar</button>
   </div>
 
   <div id="items" class="items-list"></div>
 
-  <div class="total-box fast-total">
+  <div class="total-box">
     <div><span>Peso total</span><strong id="totalKg">0,000 kg</strong></div>
     <div><span>Total a pagar</span><strong id="totalAmount">R$ 0,00</strong></div>
   </div>
 
   <div class="actions form-actions-stick">
-    <button class="btn primary big-action" type="submit" data-loading-text="Gerando recibo...">Salvar e imprimir recibo</button>
+    <button class="btn primary" type="submit" data-loading-text="Salvando...">Salvar e gerar recibo</button>
+    <a class="btn" href="{{ url_for('dashboard') }}">Cancelar</a>
   </div>
 </form>
 
 <template id="itemTemplate">
-  <div class="item-row fast-item-row">
+  <div class="item-row">
     <div class="item-row-title"><strong>Material</strong><span class="row-number">#</span></div>
     <label>Material
       <select name="material_id[]" class="material-select" required>
+        <option value="">Selecione</option>
         {% for m in materials %}
           <option value="{{ m.id }}" data-price="{{ '%.2f'|format(m.price_per_kg) }}">{{ m.name }}</option>
         {% endfor %}
       </select>
     </label>
-    <label class="kg-field">KG da balança
+    <label>Peso (kg)
       <input name="weight_kg[]" class="weight" inputmode="decimal" placeholder="0,000" required>
     </label>
     <label>Preço/kg

@@ -15,10 +15,10 @@
 <body>
   <header class="mobile-header no-print">
     <button class="mobile-menu-btn" type="button" id="openMenu" aria-label="Abrir menu">☰</button>
-    <a class="mobile-brand" href="{{ url_for('new_purchase') }}">
+    <a class="mobile-brand" href="{{ url_for('dashboard') }}">
       <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
     </a>
-    <a class="mobile-sale-btn" href="{{ url_for('new_purchase') }}" aria-label="Compra rápida">⚖️</a>
+    <a class="mobile-sale-btn" href="{{ url_for('new_sale') }}" aria-label="Venda caminhão">🚚</a>
   </header>
 
   <div class="mobile-overlay no-print" id="menuOverlay"></div>
@@ -28,17 +28,18 @@
       <strong>Menu</strong>
       <button class="close-menu" type="button" id="closeMenu" aria-label="Fechar menu">×</button>
     </div>
-    <a class="brand" href="{{ url_for('new_purchase') }}">
+    <a class="brand" href="{{ url_for('dashboard') }}">
       <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}">
     </a>
     <nav>
-      <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">🏠 Início</a>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">🏠 Início</a>
       <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}">➕ Nova compra</a>
       <a href="{{ url_for('purchases') }}" class="{{ 'active' if request.endpoint == 'purchases' or request.endpoint == 'receipt' else '' }}">♻️ Compras</a>
       <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}">🚚 Venda caminhão</a>
       <a href="{{ url_for('sales') }}" class="{{ 'active' if request.endpoint == 'sales' or request.endpoint == 'sale_receipt' else '' }}">💰 Recebimentos</a>
       <a href="{{ url_for('stock') }}" class="{{ 'active' if request.endpoint == 'stock' else '' }}">📦 Estoque</a>
       <a href="{{ url_for('materials') }}" class="{{ 'active' if request.endpoint == 'materials' else '' }}">⚖️ Materiais</a>
+      <a href="{{ url_for('people') }}" class="{{ 'active' if request.endpoint == 'people' else '' }}">👤 Pessoas</a>
       <a href="{{ url_for('reports') }}" class="{{ 'active' if request.endpoint == 'reports' else '' }}">📊 Relatórios</a>
     </nav>
     <div class="sidebar-footer">
@@ -54,7 +55,8 @@
         <h1>{{ page_title or company_name }}</h1>
       </div>
       <div class="topbar-actions">
-        <a class="btn primary" href="{{ url_for('new_purchase') }}">Compra rápida</a>
+        <a class="btn" href="{{ url_for('new_purchase') }}">Nova compra</a>
+        <a class="btn primary" href="{{ url_for('new_sale') }}">Venda caminhão</a>
       </div>
     </header>
 
@@ -72,7 +74,7 @@
   </main>
 
   <nav class="mobile-bottom-nav no-print">
-    <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}"><span>🏠</span>Início</a>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}"><span>🏠</span>Início</a>
     <a href="{{ url_for('new_purchase') }}" class="{{ 'active' if request.endpoint == 'new_purchase' else '' }}"><span>➕</span>Compra</a>
     <a href="{{ url_for('new_sale') }}" class="{{ 'active' if request.endpoint == 'new_sale' else '' }}"><span>🚚</span>Caminhão</a>
     <a href="{{ url_for('stock') }}" class="{{ 'active' if request.endpoint == 'stock' else '' }}"><span>📦</span>Estoque</a>

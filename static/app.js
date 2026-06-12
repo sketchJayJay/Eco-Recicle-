@@ -53,8 +53,6 @@ function setupPurchaseForm() {
     const select = row.querySelector('.material-select');
     const price = row.querySelector('.price');
     const weight = row.querySelector('.weight');
-    const selectedOption = select?.options?.[select.selectedIndex];
-    if (selectedOption?.dataset?.price) price.value = selectedOption.dataset.price.replace('.', ',');
 
     select.addEventListener('change', () => {
       const option = select.options[select.selectedIndex];
@@ -78,7 +76,7 @@ function setupPurchaseForm() {
     items.appendChild(fragment);
     updateRowNumbers(items);
     recalc();
-    if (focus) row.querySelector('.weight')?.focus();
+    if (focus) row.querySelector('.material-select')?.focus();
   }
 
   add.addEventListener('click', () => addRow(true));
@@ -92,7 +90,7 @@ function setupPurchaseForm() {
     }
   });
 
-  addRow(true);
+  addRow(false);
 }
 
 function setupMobileShell() {
@@ -415,291 +413,75 @@ async function buildReceiptImage(receipt) {
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'));
 }
 
+function setupReceiptShare() {
+  const btn = document.getElementById('shareReceipt');
+  const receipt = document.querySelector('.thermal-receipt');
+  if (!btn || !receipt) return;
 
+  btn.addEventListener('click', async () => {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Gerando PDF...';
+    try {
+      let blob = null;
+      const pdfUrl = btn.dataset.pdfUrl;
+      const prefix = btn.dataset.filePrefix || 'recibo-eco-recicle';
+      const fileName = `${prefix}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
+
+      if (pdfUrl) {
+        const response = await fetch(pdfUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/pdf' },
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        if (response.ok) {
+          blob = await response.blob();
+        }
+      }
+
+      if (!blob || blob.size === 0) {
+        blob = await buildReceiptPdf(receipt);
+      }
+      if (!blob) throw new Error('Erro ao gerar PDF');
+
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Recibo Eco Recicle',
+          text: 'Recibo em PDF',
+          files: [file]
+        });
+      } else {
+        const url = pdfUrl || URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        if (!pdfUrl) setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (_err) {
+      // cancelado ou bloqueado pelo navegador
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original || 'Compartilhar PDF para OpenLabel';
+    }
+  });
+}
+
+function setupPwaInstall() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
+    });
+  }
+}
 
 document.addEventListener('DOMContentLoaded', setupPurchaseForm);
 document.addEventListener('DOMContentLoaded', setupMobileShell);
-
 document.addEventListener('DOMContentLoaded', setupPwaInstall);
 
-
-
-
-
-function setupOpenLabelShare() {
-  const buttons = [
-    document.getElementById('shareReceipt'),
-    document.getElementById('shareOpenLabel'),
-    document.getElementById('sharePdf'),
-    document.querySelector('[data-share-pdf]'),
-    document.querySelector('[data-open-label]')
-  ].filter(Boolean);
-
-  const receipt = document.querySelector('.thermal-receipt') || document.querySelector('.paper') || document.querySelector('#receipt');
-  if (!buttons.length || !receipt) return;
-
-  async function getPdfBlob() {
-    if (typeof buildReceiptPdf === 'function') {
-      return await buildReceiptPdf(receipt);
-    }
-
-    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
-      const canvas = await buildReceiptCanvas(receipt);
-      return createPdfFromCanvas(canvas);
-    }
-
-    window.print();
-    throw new Error('PDF generator unavailable');
-  }
-
-  buttons.forEach(btn => {
-    if (!btn.dataset.openLabelFixed) {
-      btn.dataset.openLabelFixed = '1';
-      btn.textContent = 'Abrir PDF';
-    }
-
-    btn.addEventListener('click', async event => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Abrindo PDF...';
-
-      try {
-        const blob = await getPdfBlob();
-        if (!blob) throw new Error('PDF vazio');
-
-        const fileName = `recibo-open-label-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
-        openPdfInBrowser(blob, fileName);
-      } catch (_err) {
-        // Mantém a tela sem travar se o navegador bloquear popup.
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original || 'Abrir PDF';
-      }
-    });
-  });
-}
-
-
-
-
-
-function setupOpenLabelShare() {
-  const buttons = [
-    document.getElementById('shareReceipt'),
-    document.getElementById('shareOpenLabel'),
-    document.getElementById('sharePdf'),
-    document.querySelector('[data-share-pdf]'),
-    document.querySelector('[data-open-label]')
-  ].filter(Boolean);
-
-  const receipt = document.querySelector('.thermal-receipt') || document.querySelector('.paper') || document.querySelector('#receipt');
-  if (!buttons.length || !receipt) return;
-
-  async function getPdfBlob() {
-    if (typeof buildReceiptPdf === 'function') {
-      return await buildReceiptPdf(receipt);
-    }
-
-    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
-      const canvas = await buildReceiptCanvas(receipt);
-      return createPdfFromCanvas(canvas);
-    }
-
-    throw new Error('Gerador de PDF não encontrado');
-  }
-
-  buttons.forEach(btn => {
-    btn.dataset.openLabelFixed = '1';
-    btn.textContent = 'Abrir PDF';
-
-    btn.addEventListener('click', async event => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      // Importante no iPhone: a aba precisa abrir IMEDIATAMENTE no clique.
-      // Se abrir só depois de gerar o PDF, o Safari bloqueia e parece que "não fez nada".
-      const pdfWindow = window.open('', '_blank');
-
-      if (pdfWindow) {
-        pdfWindow.document.open();
-        pdfWindow.document.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Gerando recibo...</title>
-              <style>
-                body {
-                  margin: 0;
-                  min-height: 100vh;
-                  display: grid;
-                  place-items: center;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                  background: #ffffff;
-                  color: #111111;
-                  text-align: center;
-                  padding: 24px;
-                }
-                .box {
-                  max-width: 320px;
-                  line-height: 1.35;
-                }
-                strong { display: block; margin-bottom: 8px; }
-              </style>
-            </head>
-            <body>
-              <div class="box">
-                <strong>Gerando PDF...</strong>
-                Aguarde um instante. O recibo vai abrir aqui.
-              </div>
-            </body>
-          </html>
-        `);
-        pdfWindow.document.close();
-      }
-
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Gerando PDF...';
-
-      try {
-        const blob = await getPdfBlob();
-        if (!blob) throw new Error('PDF vazio');
-
-        const url = URL.createObjectURL(blob);
-
-        if (pdfWindow) {
-          pdfWindow.location.href = url;
-        } else {
-          // Fallback se o navegador bloquear popup.
-          const link = document.createElement('a');
-          link.href = url;
-          link.target = '_blank';
-          link.rel = 'noopener';
-          link.download = `recibo-open-label-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-        }
-
-        setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
-      } catch (_err) {
-        if (pdfWindow) {
-          pdfWindow.document.open();
-          pdfWindow.document.write(`
-            <!doctype html>
-            <html>
-              <head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-              <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px;text-align:center;">
-                <h3>Não consegui abrir o PDF</h3>
-                <p>Volte para o sistema e tente imprimir o recibo novamente.</p>
-              </body>
-            </html>
-          `);
-          pdfWindow.document.close();
-        }
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original || 'Abrir PDF';
-      }
-    });
-  });
-}
-
-
-function setupOpenLabelShare() {
-  const possibleButtons = Array.from(document.querySelectorAll('button, a, .btn')).filter(el => {
-    const txt = (el.textContent || '').toLowerCase();
-    return (
-      el.id === 'shareReceipt' ||
-      el.id === 'shareOpenLabel' ||
-      el.id === 'sharePdf' ||
-      el.hasAttribute('data-share-pdf') ||
-      el.hasAttribute('data-open-label') ||
-      txt.includes('abrir pdf') ||
-      txt.includes('open label') ||
-      txt.includes('compartilhar')
-    );
-  });
-
-  const receipt =
-    document.querySelector('.thermal-receipt') ||
-    document.querySelector('.paper') ||
-    document.querySelector('#receipt') ||
-    document.querySelector('[data-receipt]');
-
-  if (!possibleButtons.length || !receipt) return;
-
-  async function getPdfBlobSafe() {
-    if (typeof buildReceiptPdf === 'function') {
-      return await buildReceiptPdf(receipt);
-    }
-    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
-      const canvas = await buildReceiptCanvas(receipt);
-      return createPdfFromCanvas(canvas);
-    }
-    throw new Error('Gerador de PDF não encontrado');
-  }
-
-  possibleButtons.forEach(btn => {
-    if (btn.dataset.pdfBrowserReady === '1') return;
-    btn.dataset.pdfBrowserReady = '1';
-    btn.textContent = 'Abrir PDF';
-
-    btn.addEventListener('click', async event => {
-      event.preventDefault();
-      event.stopPropagation();
-
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Gerando...';
-
-      let loadingWindow = null;
-
-      // Tenta abrir uma aba em branco imediatamente. Se o iPhone bloquear, usamos mesma aba.
-      try {
-        loadingWindow = window.open('about:blank', '_blank');
-        if (loadingWindow && loadingWindow.document) {
-          loadingWindow.document.open();
-          loadingWindow.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Recibo</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:30px;text-align:center"><h3>Gerando PDF...</h3><p>Aguarde.</p></body></html>');
-          loadingWindow.document.close();
-        }
-      } catch (_e) {
-        loadingWindow = null;
-      }
-
-      try {
-        const blob = await getPdfBlobSafe();
-        const url = URL.createObjectURL(blob);
-
-        if (loadingWindow) {
-          loadingWindow.location.replace(url);
-        } else {
-          // Último recurso: abre na MESMA página, então não depende de popup.
-          window.location.href = url;
-        }
-
-        setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
-      } catch (_err) {
-        // Último recurso do último recurso: abre a impressão do navegador.
-        if (loadingWindow && !loadingWindow.closed) {
-          try {
-            loadingWindow.close();
-          } catch (_e) {}
-        }
-        try {
-          window.print();
-        } catch (_e) {}
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original || 'Abrir PDF';
-      }
-    }, { capture: true });
-  });
-}
-
-
-document.addEventListener('DOMContentLoaded', setupOpenLabelShare);
+document.addEventListener('DOMContentLoaded', setupReceiptShare);

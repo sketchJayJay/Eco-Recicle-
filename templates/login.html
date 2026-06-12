@@ -10,7 +10,7 @@
   <div class="login-card">
     <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ company_name }}" class="login-logo">
     <h1>Acesso ao sistema</h1>
-    <p>Controle de compras, materiais, fornecedores e recibos.</p>
+    <p>Controle de compras, materiais, nome opcionales e recibos.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, msg in messages %}<div class="alert {{ category }}">{{ msg }}</div>{% endfor %}

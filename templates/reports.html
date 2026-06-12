@@ -71,10 +71,10 @@
 
 <section class="grid two-cols gap-top">
   <article class="card">
-    <h2>Compras por fornecedor</h2>
+    <h2>Compras por nome opcional</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Fornecedor</th><th>Compras</th><th>Kg</th><th>Valor pago</th></tr></thead>
+        <thead><tr><th>Nome opcional</th><th>Compras</th><th>Kg</th><th>Valor pago</th></tr></thead>
         <tbody>
         {% for row in by_person %}
           <tr><td>{{ row.pessoa }}</td><td>{{ row.compras }}</td><td>{{ row.kg|kg }}</td><td>{{ row.valor|money }}</td></tr>

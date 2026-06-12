@@ -3,7 +3,7 @@
 {% block content %}
 <section class="card">
   <form class="filterbar" method="get">
-    <input name="q" value="{{ q }}" placeholder="Buscar por fornecedor, material ou observação">
+    <input name="q" value="{{ q }}" placeholder="Buscar por nome opcional, material ou observação">
     <input type="date" name="inicio" value="{{ start }}">
     <input type="date" name="fim" value="{{ end }}">
     <button class="btn" type="submit">Filtrar</button>
@@ -16,7 +16,7 @@
 
   <div class="table-wrap desktop-table">
     <table>
-      <thead><tr><th>Data</th><th>Fornecedor</th><th>Materiais</th><th>Kg</th><th>Valor</th><th>Pagamento</th><th></th></tr></thead>
+      <thead><tr><th>Data</th><th>Nome opcional</th><th>Materiais</th><th>Kg</th><th>Valor</th><th>Pagamento</th><th></th></tr></thead>
       <tbody>
       {% for row in rows %}
         <tr>

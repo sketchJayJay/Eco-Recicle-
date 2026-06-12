@@ -384,7 +384,7 @@ def login():
             session.clear()
             session["user_id"] = user["id"]
             session["username"] = user["username"]
-            return redirect('/compras/nova')
+            return redirect(url_for('new_purchase'))
         flash("Usuário ou senha inválidos.", "error")
     return render_template("login.html")
 
@@ -530,22 +530,24 @@ def new_purchase():
     db = get_db()
     if request.method == "POST":
         purchase_date = request.form.get("purchase_date") or date.today().isoformat()
-        person_name = request.form.get("person_name", "").strip() or "Fornecedor sem nome"
+        person_name = request.form.get("person_name", "").strip() or "Cliente não informado"
         phone = request.form.get("phone", "").strip()
         notes = request.form.get("notes", "").strip()
         payment_method = request.form.get("payment_method", "Pix").strip() or "Não informado"
 
-        person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (person_name,)).fetchone()
-        if person:
-            person_id = person["id"]
-            if phone and phone != (person["phone"] or ""):
-                db.execute("UPDATE people SET phone = ? WHERE id = ?", (phone, person_id))
-        else:
-            cur = db.execute(
-                "INSERT INTO people (name, phone, kind, created_at) VALUES (?, ?, 'fornecedor', ?)",
-                (person_name, phone, datetime.now().isoformat(timespec="seconds")),
-            )
-            person_id = cur.lastrowid
+        person_id = None
+        if person_name and person_name != "Cliente não informado":
+            person = db.execute("SELECT * FROM people WHERE lower(name) = lower(?) LIMIT 1", (person_name,)).fetchone()
+            if person:
+                person_id = person["id"]
+                if phone and phone != (person["phone"] or ""):
+                    db.execute("UPDATE people SET phone = ? WHERE id = ?", (phone, person_id))
+            else:
+                cur = db.execute(
+                    "INSERT INTO people (name, phone, kind, created_at) VALUES (?, ?, 'fornecedor', ?)",
+                    (person_name, phone, datetime.now().isoformat(timespec="seconds")),
+                )
+                person_id = cur.lastrowid
 
         material_ids = request.form.getlist("material_id[]")
         weights = request.form.getlist("weight_kg[]")
