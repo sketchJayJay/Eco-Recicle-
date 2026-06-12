@@ -428,6 +428,7 @@ function setupReceiptShare() {
       const prefix = btn.dataset.filePrefix || 'recibo-eco-recicle';
       const fileName = `${prefix}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
 
+      // No iPhone, o OpenLabel aparece melhor quando o PDF vem como arquivo real do servidor.
       if (pdfUrl) {
         const response = await fetch(pdfUrl, {
           method: 'GET',
@@ -440,6 +441,7 @@ function setupReceiptShare() {
         }
       }
 
+      // Reserva: se a rota do servidor falhar, gera o PDF no navegador.
       if (!blob || blob.size === 0) {
         blob = await buildReceiptPdf(receipt);
       }
@@ -464,10 +466,10 @@ function setupReceiptShare() {
         if (!pdfUrl) setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (_err) {
-      // cancelado ou bloqueado pelo navegador
+      // o usuário pode cancelar ou o navegador pode bloquear o compartilhamento
     } finally {
       btn.disabled = false;
-      btn.textContent = original || 'Compartilhar PDF para OpenLabel';
+      btn.textContent = original || 'Compartilhar recibo';
     }
   });
 }
@@ -482,6 +484,16 @@ function setupPwaInstall() {
 
 document.addEventListener('DOMContentLoaded', setupPurchaseForm);
 document.addEventListener('DOMContentLoaded', setupMobileShell);
+document.addEventListener('DOMContentLoaded', setupReceiptShare);
 document.addEventListener('DOMContentLoaded', setupPwaInstall);
 
-document.addEventListener('DOMContentLoaded', setupReceiptShare);
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="person_name"], input[name="customer_name"], input[name="client_name"], input[name="supplier_name"], input[name="nome"], input[name="name"]').forEach(input => {
+    input.removeAttribute('required');
+    if (!input.placeholder || input.placeholder.toLowerCase().includes('fornecedor') || input.placeholder.toLowerCase().includes('cliente')) {
+      input.placeholder = 'Nome opcional';
+    }
+  });
+});
+

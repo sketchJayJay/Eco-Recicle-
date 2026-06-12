@@ -2,7 +2,7 @@
 {% set page_title = 'Nova compra' %}
 {% block content %}
 <section class="quick-actions page-actions no-print">
-  <a class="action-tile active" href="{{ url_for('new_purchase') }}"><span>➕</span><strong>Comprar</strong><small>Pagar ao cliente</small></a>
+  <a class="action-tile active" href="{{ url_for('new_purchase') }}"><span>➕</span><strong>Comprar</strong><small>Pagar ao nome opcional</small></a>
   <a class="action-tile" href="{{ url_for('new_sale') }}"><span>🚚</span><strong>Caminhão</strong><small>Registrar recebimento</small></a>
   <a class="action-tile" href="{{ url_for('stock') }}"><span>📦</span><strong>Estoque</strong><small>Ver saldo por kg</small></a>
 </section>
@@ -20,7 +20,7 @@
     <label>Data da compra
       <input type="date" name="purchase_date" value="{{ today_iso }}" required>
     </label>
-    <label>Nome opcional / cliente
+    <label>Nome opcional / nome opcional
       <input name="person_name" list="peopleList" placeholder="Digite ou selecione" autocomplete="off">
       <datalist id="peopleList">
         {% for p in people %}<option value="{{ p.name }}">{{ p.phone or '' }}</option>{% endfor %}
@@ -39,7 +39,7 @@
       </select>
     </label>
     <label class="wide-field">Observação
-      <input name="notes" placeholder="Ex.: pagamento feito no Pix, cliente trouxe em bags, etc.">
+      <input name="notes" placeholder="Ex.: pagamento feito no Pix, nome opcional trouxe em bags, etc.">
     </label>
   </div>
 
