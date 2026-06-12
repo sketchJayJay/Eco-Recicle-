@@ -3,11 +3,11 @@
 {% block content %}
 <div class="receipt-actions no-print">
   <button class="btn primary" onclick="window.print()">Imprimir comprovante</button>
-  <button class="btn primary" type="button" id="shareReceipt">Abrir PDF no navegador</button>
+  <button class="btn primary" type="button" id="shareReceipt">Abrir PDF</button>
   <a class="btn" href="{{ url_for('new_sale') }}">Nova venda</a>
   <a class="btn ghost" href="{{ url_for('sales') }}">Voltar</a>
 </div>
-<p class="share-hint no-print">Use “Abrir PDF no navegador” para abrir o comprovante direto no app da impressora.</p>
+<p class="share-hint no-print">Use “Abrir PDF” para abrir o comprovante direto no app da impressora.</p>
 
 <section class="receipt thermal-receipt paper">
   <div class="thermal-logo">

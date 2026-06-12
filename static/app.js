@@ -455,7 +455,7 @@ function setupOpenLabelShare() {
   buttons.forEach(btn => {
     if (!btn.dataset.openLabelFixed) {
       btn.dataset.openLabelFixed = '1';
-      btn.textContent = 'Abrir PDF no navegador';
+      btn.textContent = 'Abrir PDF';
     }
 
     btn.addEventListener('click', async event => {
@@ -476,7 +476,7 @@ function setupOpenLabelShare() {
         // Mantém a tela sem travar se o navegador bloquear popup.
       } finally {
         btn.disabled = false;
-        btn.textContent = original || 'Abrir PDF no navegador';
+        btn.textContent = original || 'Abrir PDF';
       }
     });
   });
@@ -513,7 +513,7 @@ function setupOpenLabelShare() {
 
   buttons.forEach(btn => {
     btn.dataset.openLabelFixed = '1';
-    btn.textContent = 'Abrir PDF no navegador';
+    btn.textContent = 'Abrir PDF';
 
     btn.addEventListener('click', async event => {
       event.preventDefault();
@@ -603,9 +603,101 @@ function setupOpenLabelShare() {
         }
       } finally {
         btn.disabled = false;
-        btn.textContent = original || 'Abrir PDF no navegador';
+        btn.textContent = original || 'Abrir PDF';
       }
     });
+  });
+}
+
+
+function setupOpenLabelShare() {
+  const possibleButtons = Array.from(document.querySelectorAll('button, a, .btn')).filter(el => {
+    const txt = (el.textContent || '').toLowerCase();
+    return (
+      el.id === 'shareReceipt' ||
+      el.id === 'shareOpenLabel' ||
+      el.id === 'sharePdf' ||
+      el.hasAttribute('data-share-pdf') ||
+      el.hasAttribute('data-open-label') ||
+      txt.includes('abrir pdf') ||
+      txt.includes('open label') ||
+      txt.includes('compartilhar')
+    );
+  });
+
+  const receipt =
+    document.querySelector('.thermal-receipt') ||
+    document.querySelector('.paper') ||
+    document.querySelector('#receipt') ||
+    document.querySelector('[data-receipt]');
+
+  if (!possibleButtons.length || !receipt) return;
+
+  async function getPdfBlobSafe() {
+    if (typeof buildReceiptPdf === 'function') {
+      return await buildReceiptPdf(receipt);
+    }
+    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
+      const canvas = await buildReceiptCanvas(receipt);
+      return createPdfFromCanvas(canvas);
+    }
+    throw new Error('Gerador de PDF não encontrado');
+  }
+
+  possibleButtons.forEach(btn => {
+    if (btn.dataset.pdfBrowserReady === '1') return;
+    btn.dataset.pdfBrowserReady = '1';
+    btn.textContent = 'Abrir PDF';
+
+    btn.addEventListener('click', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Gerando...';
+
+      let loadingWindow = null;
+
+      // Tenta abrir uma aba em branco imediatamente. Se o iPhone bloquear, usamos mesma aba.
+      try {
+        loadingWindow = window.open('about:blank', '_blank');
+        if (loadingWindow && loadingWindow.document) {
+          loadingWindow.document.open();
+          loadingWindow.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Recibo</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:30px;text-align:center"><h3>Gerando PDF...</h3><p>Aguarde.</p></body></html>');
+          loadingWindow.document.close();
+        }
+      } catch (_e) {
+        loadingWindow = null;
+      }
+
+      try {
+        const blob = await getPdfBlobSafe();
+        const url = URL.createObjectURL(blob);
+
+        if (loadingWindow) {
+          loadingWindow.location.replace(url);
+        } else {
+          // Último recurso: abre na MESMA página, então não depende de popup.
+          window.location.href = url;
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+      } catch (_err) {
+        // Último recurso do último recurso: abre a impressão do navegador.
+        if (loadingWindow && !loadingWindow.closed) {
+          try {
+            loadingWindow.close();
+          } catch (_e) {}
+        }
+        try {
+          window.print();
+        } catch (_e) {}
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original || 'Abrir PDF';
+      }
+    }, { capture: true });
   });
 }
 
