@@ -416,6 +416,37 @@ async function buildReceiptImage(receipt) {
 }
 
 
+
+document.addEventListener('DOMContentLoaded', setupPurchaseForm);
+document.addEventListener('DOMContentLoaded', setupMobileShell);
+
+document.addEventListener('DOMContentLoaded', setupPwaInstall);
+
+
+
+
+function openPdfInBrowser(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+
+  // Abre como uma página/aba do navegador. No iPhone, depois é só tocar em Compartilhar
+  // nessa página do PDF, igual quando o PDF era aberto manualmente.
+  const win = window.open(url, '_blank');
+
+  if (!win) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  // Não revoga imediatamente, porque o Safari/iPhone precisa do arquivo vivo na aba.
+  setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+}
+
 function setupOpenLabelShare() {
   const buttons = [
     document.getElementById('shareReceipt'),
@@ -438,78 +469,39 @@ function setupOpenLabelShare() {
       return createPdfFromCanvas(canvas);
     }
 
-    // Fallback: abrir a tela de impressão caso alguma versão antiga não tenha gerador PDF.
     window.print();
     throw new Error('PDF generator unavailable');
   }
 
   buttons.forEach(btn => {
-    btn.textContent = btn.textContent || 'Compartilhar PDF';
+    if (!btn.dataset.openLabelFixed) {
+      btn.dataset.openLabelFixed = '1';
+      btn.textContent = 'Abrir PDF no navegador';
+    }
+
     btn.addEventListener('click', async event => {
       event.preventDefault();
       event.stopPropagation();
 
       const original = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Gerando PDF...';
+      btn.textContent = 'Abrindo PDF...';
 
       try {
         const blob = await getPdfBlob();
         if (!blob) throw new Error('PDF vazio');
 
         const fileName = `recibo-open-label-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
-        const file = new File([blob], fileName, { type: 'application/pdf' });
-
-        // Este é o ponto importante para aparecer o Open Label no iPhone:
-        // precisa compartilhar um ARQUIVO PDF real, não texto/link/imagem.
-        if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-          await navigator.share({
-            title: 'Recibo Eco Recicle',
-            text: 'Recibo Eco Recicle',
-            files: [file]
-          });
-        } else if (navigator.share) {
-          // Alguns iPhones mostram apps só com files; se não aceitar, baixa o PDF.
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1500);
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1500);
-        }
+        openPdfInBrowser(blob, fileName);
       } catch (_err) {
-        // Se der erro ou cancelar, não quebra a tela.
+        // Mantém a tela sem travar se o navegador bloquear popup.
       } finally {
         btn.disabled = false;
-        btn.textContent = original || 'Compartilhar PDF';
+        btn.textContent = original || 'Abrir PDF no navegador';
       }
     });
   });
 }
 
-
-function setupPwaInstall() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/static/service-worker.js').catch(() => {});
-    });
-  }
-}
-
-document.addEventListener('DOMContentLoaded', setupPurchaseForm);
-document.addEventListener('DOMContentLoaded', setupMobileShell);
-
-document.addEventListener('DOMContentLoaded', setupPwaInstall);
 
 document.addEventListener('DOMContentLoaded', setupOpenLabelShare);
