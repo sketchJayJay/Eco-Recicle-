@@ -53,6 +53,8 @@ function setupPurchaseForm() {
     const select = row.querySelector('.material-select');
     const price = row.querySelector('.price');
     const weight = row.querySelector('.weight');
+    const selectedOption = select?.options?.[select.selectedIndex];
+    if (selectedOption?.dataset?.price) price.value = selectedOption.dataset.price.replace('.', ',');
 
     select.addEventListener('change', () => {
       const option = select.options[select.selectedIndex];
@@ -76,7 +78,7 @@ function setupPurchaseForm() {
     items.appendChild(fragment);
     updateRowNumbers(items);
     recalc();
-    if (focus) row.querySelector('.material-select')?.focus();
+    if (focus) row.querySelector('.weight')?.focus();
   }
 
   add.addEventListener('click', () => addRow(true));
@@ -90,7 +92,7 @@ function setupPurchaseForm() {
     }
   });
 
-  addRow(false);
+  addRow(true);
 }
 
 function setupMobileShell() {
@@ -423,47 +425,22 @@ function setupReceiptShare() {
     btn.disabled = true;
     btn.textContent = 'Gerando PDF...';
     try {
-      let blob = null;
-      const pdfUrl = btn.dataset.pdfUrl;
-      const prefix = btn.dataset.filePrefix || 'recibo-eco-recicle';
-      const fileName = `${prefix}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
-
-      // No iPhone, o OpenLabel aparece melhor quando o PDF vem como arquivo real do servidor.
-      if (pdfUrl) {
-        const response = await fetch(pdfUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
-          credentials: 'same-origin',
-          cache: 'no-store'
-        });
-        if (response.ok) {
-          blob = await response.blob();
-        }
-      }
-
-      // Reserva: se a rota do servidor falhar, gera o PDF no navegador.
-      if (!blob || blob.size === 0) {
-        blob = await buildReceiptPdf(receipt);
-      }
+      const blob = await buildReceiptPdf(receipt);
       if (!blob) throw new Error('Erro ao gerar PDF');
-
+      const fileName = `recibo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
       const file = new File([blob], fileName, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'Recibo Eco Recicle',
-          text: 'Recibo em PDF',
-          files: [file]
-        });
+        await navigator.share({ title: document.title || 'Recibo', files: [file] });
       } else {
-        const url = pdfUrl || URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        if (!pdfUrl) setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (_err) {
       // o usuário pode cancelar ou o navegador pode bloquear o compartilhamento
