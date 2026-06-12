@@ -425,27 +425,6 @@ document.addEventListener('DOMContentLoaded', setupPwaInstall);
 
 
 
-function openPdfInBrowser(blob, fileName) {
-  const url = URL.createObjectURL(blob);
-
-  // Abre como uma página/aba do navegador. No iPhone, depois é só tocar em Compartilhar
-  // nessa página do PDF, igual quando o PDF era aberto manualmente.
-  const win = window.open(url, '_blank');
-
-  if (!win) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
-
-  // Não revoga imediatamente, porque o Safari/iPhone precisa do arquivo vivo na aba.
-  setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
-}
 
 function setupOpenLabelShare() {
   const buttons = [
@@ -495,6 +474,133 @@ function setupOpenLabelShare() {
         openPdfInBrowser(blob, fileName);
       } catch (_err) {
         // Mantém a tela sem travar se o navegador bloquear popup.
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original || 'Abrir PDF no navegador';
+      }
+    });
+  });
+}
+
+
+
+
+
+function setupOpenLabelShare() {
+  const buttons = [
+    document.getElementById('shareReceipt'),
+    document.getElementById('shareOpenLabel'),
+    document.getElementById('sharePdf'),
+    document.querySelector('[data-share-pdf]'),
+    document.querySelector('[data-open-label]')
+  ].filter(Boolean);
+
+  const receipt = document.querySelector('.thermal-receipt') || document.querySelector('.paper') || document.querySelector('#receipt');
+  if (!buttons.length || !receipt) return;
+
+  async function getPdfBlob() {
+    if (typeof buildReceiptPdf === 'function') {
+      return await buildReceiptPdf(receipt);
+    }
+
+    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
+      const canvas = await buildReceiptCanvas(receipt);
+      return createPdfFromCanvas(canvas);
+    }
+
+    throw new Error('Gerador de PDF não encontrado');
+  }
+
+  buttons.forEach(btn => {
+    btn.dataset.openLabelFixed = '1';
+    btn.textContent = 'Abrir PDF no navegador';
+
+    btn.addEventListener('click', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Importante no iPhone: a aba precisa abrir IMEDIATAMENTE no clique.
+      // Se abrir só depois de gerar o PDF, o Safari bloqueia e parece que "não fez nada".
+      const pdfWindow = window.open('', '_blank');
+
+      if (pdfWindow) {
+        pdfWindow.document.open();
+        pdfWindow.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Gerando recibo...</title>
+              <style>
+                body {
+                  margin: 0;
+                  min-height: 100vh;
+                  display: grid;
+                  place-items: center;
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  background: #ffffff;
+                  color: #111111;
+                  text-align: center;
+                  padding: 24px;
+                }
+                .box {
+                  max-width: 320px;
+                  line-height: 1.35;
+                }
+                strong { display: block; margin-bottom: 8px; }
+              </style>
+            </head>
+            <body>
+              <div class="box">
+                <strong>Gerando PDF...</strong>
+                Aguarde um instante. O recibo vai abrir aqui.
+              </div>
+            </body>
+          </html>
+        `);
+        pdfWindow.document.close();
+      }
+
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Gerando PDF...';
+
+      try {
+        const blob = await getPdfBlob();
+        if (!blob) throw new Error('PDF vazio');
+
+        const url = URL.createObjectURL(blob);
+
+        if (pdfWindow) {
+          pdfWindow.location.href = url;
+        } else {
+          // Fallback se o navegador bloquear popup.
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.download = `recibo-open-label-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+
+        setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+      } catch (_err) {
+        if (pdfWindow) {
+          pdfWindow.document.open();
+          pdfWindow.document.write(`
+            <!doctype html>
+            <html>
+              <head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+              <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px;text-align:center;">
+                <h3>Não consegui abrir o PDF</h3>
+                <p>Volte para o sistema e tente imprimir o recibo novamente.</p>
+              </body>
+            </html>
+          `);
+          pdfWindow.document.close();
+        }
       } finally {
         btn.disabled = false;
         btn.textContent = original || 'Abrir PDF no navegador';
