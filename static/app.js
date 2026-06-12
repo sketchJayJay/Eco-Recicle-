@@ -415,41 +415,89 @@ async function buildReceiptImage(receipt) {
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'));
 }
 
-function setupReceiptShare() {
-  const btn = document.getElementById('shareReceipt');
-  const receipt = document.querySelector('.thermal-receipt');
-  if (!btn || !receipt) return;
 
-  btn.addEventListener('click', async () => {
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Gerando PDF...';
-    try {
-      const blob = await buildReceiptPdf(receipt);
-      if (!blob) throw new Error('Erro ao gerar PDF');
-      const fileName = `recibo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
-      const file = new File([blob], fileName, { type: 'application/pdf' });
+function setupOpenLabelShare() {
+  const buttons = [
+    document.getElementById('shareReceipt'),
+    document.getElementById('shareOpenLabel'),
+    document.getElementById('sharePdf'),
+    document.querySelector('[data-share-pdf]'),
+    document.querySelector('[data-open-label]')
+  ].filter(Boolean);
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ title: document.title || 'Recibo', files: [file] });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
-    } catch (_err) {
-      // o usuário pode cancelar ou o navegador pode bloquear o compartilhamento
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original || 'Compartilhar PDF no One Label';
+  const receipt = document.querySelector('.thermal-receipt') || document.querySelector('.paper') || document.querySelector('#receipt');
+  if (!buttons.length || !receipt) return;
+
+  async function getPdfBlob() {
+    if (typeof buildReceiptPdf === 'function') {
+      return await buildReceiptPdf(receipt);
     }
+
+    if (typeof buildReceiptCanvas === 'function' && typeof createPdfFromCanvas === 'function') {
+      const canvas = await buildReceiptCanvas(receipt);
+      return createPdfFromCanvas(canvas);
+    }
+
+    // Fallback: abrir a tela de impressão caso alguma versão antiga não tenha gerador PDF.
+    window.print();
+    throw new Error('PDF generator unavailable');
+  }
+
+  buttons.forEach(btn => {
+    btn.textContent = btn.textContent || 'Compartilhar PDF';
+    btn.addEventListener('click', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Gerando PDF...';
+
+      try {
+        const blob = await getPdfBlob();
+        if (!blob) throw new Error('PDF vazio');
+
+        const fileName = `recibo-open-label-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.pdf`;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+
+        // Este é o ponto importante para aparecer o Open Label no iPhone:
+        // precisa compartilhar um ARQUIVO PDF real, não texto/link/imagem.
+        if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+          await navigator.share({
+            title: 'Recibo Eco Recicle',
+            text: 'Recibo Eco Recicle',
+            files: [file]
+          });
+        } else if (navigator.share) {
+          // Alguns iPhones mostram apps só com files; se não aceitar, baixa o PDF.
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
+        }
+      } catch (_err) {
+        // Se der erro ou cancelar, não quebra a tela.
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original || 'Compartilhar PDF';
+      }
+    });
   });
 }
+
 
 function setupPwaInstall() {
   if ('serviceWorker' in navigator) {
@@ -461,5 +509,7 @@ function setupPwaInstall() {
 
 document.addEventListener('DOMContentLoaded', setupPurchaseForm);
 document.addEventListener('DOMContentLoaded', setupMobileShell);
-document.addEventListener('DOMContentLoaded', setupReceiptShare);
+
 document.addEventListener('DOMContentLoaded', setupPwaInstall);
+
+document.addEventListener('DOMContentLoaded', setupOpenLabelShare);
